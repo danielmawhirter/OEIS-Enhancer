@@ -1,0 +1,8 @@
+<web-app>
+	<resource-ref>
+		<description>OEIS database</description>
+		<res-ref-name>jdbc/OEIS-REU-2015</res-ref-name>
+		<res-type>javax.sql.DataSource</res-type>
+		<res-auth>Container</res-auth>
+	</resource-ref>
+</web-app>

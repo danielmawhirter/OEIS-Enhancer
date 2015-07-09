@@ -1,0 +1,22 @@
+thirtyone 2 thirtytwo twelve
+thirtytwo 2 thirtyone twentythree
+twelve 3 thirtyone thirty eighteen
+thirteen 3 fourteen eighteen thirty
+fourteen 1 thirteen
+fifteen 1 thirtythree
+thirtythree 3 fifteen twentyfive thirtyfour
+seventeen 1 eighteen
+eighteen 3 seventeen thirteen twelve
+thirtyfour 2 twenty thirtythree
+twenty 2 thirtyfour thirtysix
+twentyone 2 twentytwo twentythree
+twentytwo 2 twentyone twentysix
+twentythree 3 twentyone twentyfour thirtytwo
+twentyfour 1 twentythree
+twentyfive 2 twentysix thirtythree
+twentysix 4 twenty twentytwo twentyfive twentyeight
+twentyseven 1 twentyeight
+twentyeight 2 twentyseven twentysix
+thirtyseven 2 thirtysix thirty
+thirtysix 2 thirtyseven thirty
+thirty 4 thirtyseven thirtysix twelve thirteen
