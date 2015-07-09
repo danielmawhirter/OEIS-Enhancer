@@ -21,13 +21,15 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.PathParam;
 
 import edu.rutgers.dimacs.reu.utility.*;
+import edu.rutgers.dimacs.reu.utility.MySQLHandler.CrossrefTypes;
 import static javax.ejb.LockType.READ;
 
 @Path("pathAddition")
 @Singleton
 @Lock(READ)
 public class PathService {
-	
+	private final static Logger LOGGER = Logger.getLogger(PathService.class
+			.getName());
 
 	public PathService() throws SQLException, NamingException {
 		MySQLHandler.setup();
@@ -69,8 +71,8 @@ public class PathService {
 		for (GraphNode gn : graph.getNodeSet()) {
 			int gn_int = Integer.parseInt(gn.toString());
 			Set<Integer> neighbor_ints = MySQLHandler
-					.getCrossrefsLeaving(gn_int);
-			Set<Integer> entering_ints = MySQLHandler.getCrossrefsInto(gn_int);
+					.getCrossrefsLeaving(gn_int, CrossrefTypes.NORMALONLY);
+			Set<Integer> entering_ints = MySQLHandler.getCrossrefsInto(gn_int, CrossrefTypes.NORMALONLY);
 			neighbor_ints.addAll(entering_ints);
 
 			for (int neighbor_int : neighbor_ints) {
@@ -88,7 +90,8 @@ public class PathService {
 	public static String edgesJSON(Graph graph) {
 
 		String result = "";
-		for (Edge edge : graph.getEdgeSet()) {
+		TreeSet<Edge> orderedEdges = new TreeSet<>(graph.getEdgeSet());
+		for (Edge edge : orderedEdges) {
 			result = result + ",\n{" + edge.toString() + "}";
 		}
 
@@ -107,7 +110,6 @@ public class PathService {
 
 		return result;
 		// return
-		// "{\"links\":[{\"id\":\"1--2\", \"source_name\":\"1\", \"target_name\":\"2\"}],\"nodes\":[{\"name\":\"1\"},{\"name\":\"2\"}]}";
 	}
 
 	public static ArrayList<ArrayList<Integer>> getShortestPaths(String source,
@@ -163,9 +165,9 @@ public class PathService {
 			// System.out.println("curr_int: " + curr_int);
 
 			Set<Integer> neighbors_ints = MySQLHandler
-					.getCrossrefsLeaving(curr_int);
+					.getCrossrefsLeaving(curr_int, CrossrefTypes.NORMALONLY);
 			Set<Integer> entering_ints = MySQLHandler
-					.getCrossrefsInto(curr_int);
+					.getCrossrefsInto(curr_int, CrossrefTypes.NORMALONLY);
 			neighbors_ints.addAll(entering_ints);
 
 			for (int n : neighbors_ints) {
@@ -207,8 +209,8 @@ public class PathService {
 			for (int n : path) {
 				all_ints.add(n);
 				Set<Integer> neighbors_ints = MySQLHandler
-						.getCrossrefsLeaving(n);
-				Set<Integer> entering_ints = MySQLHandler.getCrossrefsInto(n);
+						.getCrossrefsLeaving(n, CrossrefTypes.NORMALONLY);
+				Set<Integer> entering_ints = MySQLHandler.getCrossrefsInto(n, CrossrefTypes.NORMALONLY);
 				neighbors_ints.addAll(entering_ints);
 
 				all_ints.addAll(neighbors_ints);

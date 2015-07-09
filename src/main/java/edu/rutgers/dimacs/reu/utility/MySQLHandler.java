@@ -245,28 +245,35 @@ public final class MySQLHandler {
 	}
 
 	public static int getAuthorYear(int id) throws SQLException {
-
 		ResultSet rs = st
 				.executeQuery("SELECT Year_Created FROM Authors WHERE SID="
 						+ Integer.toString(id) + ";");
 		if (rs.next())
 			return rs.getInt(1);
-
 		return -1;
 	}
 
-	public static Set<Integer> getSequencesWithKeywords(String keyword)
+	public static Set<Integer> getSequencesWithKeyword(String keyword)
 			throws SQLException {
 		HashSet<Integer> ids = new HashSet<>();
-
 		ResultSet rs = st
 				.executeQuery("SELECT SID FROM Key_Words WHERE K_Word LIKE '"
 						+ keyword + "';");
 		while (rs.next()) {
 			ids.add(rs.getInt(1));
 		}
-
 		return ids;
+	}
+
+	public static Set<String> getKeywordsOf(int id) throws SQLException {
+		HashSet<String> words = new HashSet<>();
+		ResultSet rs = st
+				.executeQuery("SELECT K_Word FROM Key_Words WHERE SID="
+						+ Integer.toString(id) + ";");
+		while (rs.next()) {
+			words.add(rs.getString(1));
+		}
+		return words;
 	}
 
 	public static Set<String> getContributors(int id) throws SQLException {
