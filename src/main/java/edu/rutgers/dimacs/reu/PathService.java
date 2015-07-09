@@ -9,9 +9,11 @@ import java.util.Queue;
 import java.util.LinkedList;
 import java.util.Collections;
 import java.util.TreeSet;
+import java.util.logging.Logger;
 
 import javax.ejb.Lock;
 import javax.ejb.Singleton;
+import javax.naming.NamingException;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -25,8 +27,9 @@ import static javax.ejb.LockType.READ;
 @Singleton
 @Lock(READ)
 public class PathService {
+	
 
-	public PathService() throws SQLException{
+	public PathService() throws SQLException, NamingException {
 		MySQLHandler.setup();
 		System.out.println("Path Service Instanciated");
 	}
@@ -36,19 +39,24 @@ public class PathService {
 	@Produces(MediaType.APPLICATION_JSON)
 	public String getAddition(@PathParam("newNode") String newNode,
 			@PathParam("pathTo") String existing) {
-		ArrayList<ArrayList<Integer>> paths = getShortestPaths(newNode,
-				existing);
-		Graph graph = buildGraph(neighborhoods(paths));
+		try {
+			ArrayList<ArrayList<Integer>> paths = getShortestPaths(newNode,
+					existing);
+			Graph graph = buildGraph(neighborhoods(paths));
 
-		HashSet<Integer> paths_set = new HashSet<Integer>();
-		for (ArrayList<Integer> path : paths) {
-			paths_set.addAll(path);
+			HashSet<Integer> paths_set = new HashSet<Integer>();
+			for (ArrayList<Integer> path : paths) {
+				paths_set.addAll(path);
+			}
+
+			return finalJSON(graph, paths_set);
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return "{\"error\": \"sql error\"}";
 		}
-
-		return finalJSON(graph, paths_set);
 	}
 
-	public static Graph buildGraph(HashSet<Integer> ints) {
+	public static Graph buildGraph(HashSet<Integer> ints) throws SQLException {
 		Graph graph = new Graph(false, "asdf");
 
 		// add all the nodes
@@ -98,11 +106,12 @@ public class PathService {
 		result = result + nodesJSON(graph, path_ints) + "]\n}";
 
 		return result;
-		//return "{\"links\":[{\"id\":\"1--2\", \"source_name\":\"1\", \"target_name\":\"2\"}],\"nodes\":[{\"name\":\"1\"},{\"name\":\"2\"}]}";
+		// return
+		// "{\"links\":[{\"id\":\"1--2\", \"source_name\":\"1\", \"target_name\":\"2\"}],\"nodes\":[{\"name\":\"1\"},{\"name\":\"2\"}]}";
 	}
 
 	public static ArrayList<ArrayList<Integer>> getShortestPaths(String source,
-			String dests) {
+			String dests) throws SQLException {
 		ArrayList<ArrayList<Integer>> paths = new ArrayList<ArrayList<Integer>>();
 
 		Integer source_int = Integer.parseInt(source);
@@ -191,7 +200,7 @@ public class PathService {
 	}
 
 	public static HashSet<Integer> neighborhoods(
-			ArrayList<ArrayList<Integer>> paths_ints) {
+			ArrayList<ArrayList<Integer>> paths_ints) throws SQLException {
 		HashSet<Integer> all_ints = new HashSet<Integer>();
 
 		for (ArrayList<Integer> path : paths_ints) {
@@ -212,7 +221,7 @@ public class PathService {
 	public static String nodesJSON(Graph graph, HashSet<Integer> path_ints) {
 
 		String result = "";
-		
+
 		TreeSet<GraphNode> nodes = new TreeSet<>(graph.getNodeSet());
 
 		for (GraphNode gn : nodes) {

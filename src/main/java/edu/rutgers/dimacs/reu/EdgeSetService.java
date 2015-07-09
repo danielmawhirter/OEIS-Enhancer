@@ -1,4 +1,5 @@
 package edu.rutgers.dimacs.reu;
+
 //Service, handles queries for edges among subset of antichain
 
 import javax.ejb.Lock;
@@ -12,6 +13,8 @@ import javax.ws.rs.PathParam;
 import java.util.HashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
+import java.io.IOException;
 import java.io.InputStream;
 
 import com.google.common.cache.CacheBuilder;
@@ -25,59 +28,76 @@ import static javax.ejb.LockType.READ;
 @Singleton
 @Lock(READ)
 public class EdgeSetService {
-  private ClassLoader cl;
-  LoadingCache<String, HierarchyTree> cache;
-  
-  public EdgeSetService() {
-    super();
-    
-    cache = CacheBuilder.newBuilder().maximumSize(10)
-    		.expireAfterAccess(5, TimeUnit.MINUTES)
-    		.build(new CacheLoader<String, HierarchyTree>() {
-		@Override
-		public HierarchyTree load(String graph) throws Exception {
-			InputStream tree_is = cl.getResourceAsStream("graphs/" + graph + "/tree.txt");
-			return new HierarchyTree(tree_is);
-		}
-    });
-    
-    cl = this.getClass().getClassLoader();
-    System.out.println("EdgeSetService instanciated");
-  }
+	private ClassLoader cl;
+	LoadingCache<String, HierarchyTree> cache;
+	private final static Logger LOGGER = Logger.getLogger(PathService.class
+			.getName());
 
-  // toy/twelve-five-eight
-  @GET
-  @Path("{graph}/{query}")
-  @Produces(MediaType.APPLICATION_JSON)
-  public String getEdges(@PathParam("graph") String graph, @PathParam("query") String query) {
-    System.out.println("Query: " + graph + "/" + query);
-    long timeStart;
-    HashMap<String, String> leafToCluster;
-    
-    timeStart = System.nanoTime();
-    HierarchyTree tree = null;
-	try {
-		tree = cache.get(graph);
-	} catch (ExecutionException e) {
-		e.printStackTrace(System.out);
-		return "{\"error\": \"cache error\"}";
+	public EdgeSetService() {
+		super();
+		cache = CacheBuilder.newBuilder().maximumSize(10)
+				.expireAfterAccess(5, TimeUnit.MINUTES)
+				.build(new CacheLoader<String, HierarchyTree>() {
+					@Override
+					public HierarchyTree load(String graph) throws IOException {
+						InputStream tree_is = cl.getResourceAsStream("graphs/"
+								+ graph + "/tree.txt");
+						return new HierarchyTree(tree_is);
+					}
+				});
+
+		cl = this.getClass().getClassLoader();
+		LOGGER.info("EdgeSetService instanciated");
 	}
-    if(tree.isEmpty()) return "{ \"error\": \"failed to read tree\" }";
-    String[] split = query.split("-");
-    System.out.println(Integer.toString(split.length) + " vertices in query");
-    leafToCluster = new HashMap<>();
-    for(String s : split) {
-      for(String d : tree.getLeaves(s)) {
-        leafToCluster.put(d, s);
-      }
-    }
-    System.out.println("Tree interaction took " + Integer.toString((int)((System.nanoTime() - timeStart) / 1000000)) + "ms");
-    
-    InputStream edge_is = cl.getResourceAsStream("graphs/" + graph + "/edges.txt");
-    timeStart = System.nanoTime();
-    String response = EdgeSet.getAsJSON(leafToCluster, edge_is);
-    System.out.println("Edge interaction took " + Integer.toString((int)((System.nanoTime() - timeStart) / 1000000)) + "ms");
-    System.out.println("Query success, response size (chars): " + Integer.toString(response.length()));
-    return response;
-  }
+
+	// toy/twelve-five-eight
+	@GET
+	@Path("{graph}/{query}")
+	@Produces(MediaType.APPLICATION_JSON)
+	public String getEdges(@PathParam("graph") String graph,
+			@PathParam("query") String query) {
+
+		String logString = "Query: " + graph + "/" + query + "\n";
+		
+		long timeStart;
+		HashMap<String, String> leafToCluster;
+
+		timeStart = System.nanoTime();
+		HierarchyTree tree = null;
+		try {
+			tree = cache.get(graph);
+		} catch (ExecutionException e) {
+			LOGGER.severe(e.toString());
+			return "{\"error\": \"cache error\"}";
+		}
+		String[] split = query.split("-");
+		logString += Integer.toString(split.length) + " vertices in query\n";
+		leafToCluster = new HashMap<>();
+		for (String s : split) {
+			for (String d : tree.getLeaves(s)) {
+				leafToCluster.put(d, s);
+			}
+		}
+		logString += "Tree interaction took "
+				+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
+				+ "ms\n";
+
+		InputStream edge_is = cl.getResourceAsStream("graphs/" + graph
+				+ "/edges.txt");
+		timeStart = System.nanoTime();
+		String response = null;
+		try {
+			response = EdgeSet.getAsJSON(leafToCluster, edge_is);
+		} catch (NumberFormatException | IOException e) {
+			LOGGER.severe(e.toString());
+			return "{\"error\": \"could not read edge set\"}";
+		}
+		logString += "Edge interaction took "
+				+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
+				+ "ms\n";
+		logString += "Query success, response size (chars): "
+				+ Integer.toString(response.length());
+		LOGGER.info(logString);
+		return response;
+	}
 }

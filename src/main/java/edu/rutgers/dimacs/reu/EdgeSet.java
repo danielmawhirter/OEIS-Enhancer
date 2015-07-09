@@ -3,15 +3,14 @@ package edu.rutgers.dimacs.reu;
 
 import java.util.Map;
 import java.util.TreeMap;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
 public class EdgeSet {
-  public static String getAsJSON(Map<String, String> leafToCluster, InputStream is) {
-    try (BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
+  public static String getAsJSON(Map<String, String> leafToCluster, InputStream is) throws NumberFormatException, IOException {
+    BufferedReader br = new BufferedReader(new InputStreamReader(is));
       EdgeCounter counter = new EdgeCounter();
       String line;
       while((line = br.readLine()) != null) {
@@ -28,13 +27,7 @@ public class EdgeSet {
       }
       is.close();
       br.close();
-      System.out.println(Integer.toString(counter.getEdgeCount()) + " edges found");
       return counter.toString();
-    } catch (IOException e) {
-      e.printStackTrace(System.out);
-      System.out.println("Query failed");
-      return "{ \"error\": \"failed to read edgeset\" }";
-    }
   }
   
   public static class EdgeCounter {

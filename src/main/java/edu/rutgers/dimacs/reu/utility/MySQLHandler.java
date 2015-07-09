@@ -47,19 +47,15 @@ public final class MySQLHandler {
 		}
 	}
 
-	public static boolean setup() {
-		try {
-			Context initCtx = new InitialContext();
-			Context envCtx = (Context) initCtx.lookup("java:comp/env");
-			DataSource ds = (DataSource)envCtx.lookup("jdbc/OEIS-REU-2015");
-			con = ds.getConnection();
-			st = con.createStatement();
-		} catch (SQLException | NamingException e) {
-			throw new RuntimeException(e);
-		}
+	public static boolean setup() throws NamingException, SQLException {
+		Context initCtx = new InitialContext();
+		Context envCtx = (Context) initCtx.lookup("java:comp/env");
+		DataSource ds = (DataSource) envCtx.lookup("jdbc/OEIS-REU-2015");
+		con = ds.getConnection();
+		st = con.createStatement();
 		return true;
 	}
-	
+
 	public static boolean close() {
 		try {
 			st.close();
@@ -72,94 +68,85 @@ public final class MySQLHandler {
 		}
 		return true;
 	}
-	
+
 	public static Map<String, Integer> getWordMultiSet(int sequenceId,
-			WordSources sources) {
+			WordSources sources) throws SQLException {
 		Map<String, Integer> wordMultiSet = new TreeMap<>();
 		ResultSet rs;
-		if (sources.comments)
-			try {
-				rs = st.executeQuery("SELECT Word,Frequency FROM Com_Words WHERE SID="
-						+ Integer.toString(sequenceId) + ";");
-				while (rs.next()) {
-					String word = rs.getString(1);
-					if(word.equals("NONE")) continue;
-					Integer count = wordMultiSet.get(word);
-					if (count == null) {
-						wordMultiSet.put(word, rs.getInt(2));
-					} else {
-						wordMultiSet.put(word, count + rs.getInt(2));
-					}
+		if (sources.comments) {
+			rs = st.executeQuery("SELECT Word,Frequency FROM Com_Words WHERE SID="
+					+ Integer.toString(sequenceId) + ";");
+			while (rs.next()) {
+				String word = rs.getString(1);
+				if (word.equals("NONE"))
+					continue;
+				Integer count = wordMultiSet.get(word);
+				if (count == null) {
+					wordMultiSet.put(word, rs.getInt(2));
+				} else {
+					wordMultiSet.put(word, count + rs.getInt(2));
 				}
-			} catch (SQLException e) {
-				System.err.println("Error selecting from Comments");
-				return null;
 			}
-		if (sources.links)
-			try {
-				rs = st.executeQuery("SELECT Word,Frequency FROM Link_Words WHERE SID="
-						+ Integer.toString(sequenceId) + ";");
-				while (rs.next()) {
-					String word = rs.getString(1);
-					if(word.equals("NONE")) continue;
-					Integer count = wordMultiSet.get(word);
-					if (count == null) {
-						wordMultiSet.put(word, rs.getInt(2));
-					} else {
-						wordMultiSet.put(word, count + rs.getInt(2));
-					}
+		}
+		if (sources.links) {
+			rs = st.executeQuery("SELECT Word,Frequency FROM Link_Words WHERE SID="
+					+ Integer.toString(sequenceId) + ";");
+			while (rs.next()) {
+				String word = rs.getString(1);
+				if (word.equals("NONE"))
+					continue;
+				Integer count = wordMultiSet.get(word);
+				if (count == null) {
+					wordMultiSet.put(word, rs.getInt(2));
+				} else {
+					wordMultiSet.put(word, count + rs.getInt(2));
 				}
-			} catch (SQLException e) {
-				System.err.println("Error selecting from Links");
-				return null;
 			}
-		if (sources.references)
-			try {
-				rs = st.executeQuery("SELECT Word,Frequency FROM Ref_Words WHERE SID="
-						+ Integer.toString(sequenceId) + ";");
-				while (rs.next()) {
-					String word = rs.getString(1);
-					if(word.equals("NONE")) continue;
-					Integer count = wordMultiSet.get(word);
-					if (count == null) {
-						wordMultiSet.put(word, rs.getInt(2));
-					} else {
-						wordMultiSet.put(word, count + rs.getInt(2));
-					}
+		}
+		if (sources.references) {
+			rs = st.executeQuery("SELECT Word,Frequency FROM Ref_Words WHERE SID="
+					+ Integer.toString(sequenceId) + ";");
+			while (rs.next()) {
+				String word = rs.getString(1);
+				if (word.equals("NONE"))
+					continue;
+				Integer count = wordMultiSet.get(word);
+				if (count == null) {
+					wordMultiSet.put(word, rs.getInt(2));
+				} else {
+					wordMultiSet.put(word, count + rs.getInt(2));
 				}
-			} catch (SQLException e) {
-				System.err.println("Error selecting from Refs");
-				return null;
 			}
+		}
 		return wordMultiSet;
 	}
 
-	public static Map<String, Integer> getWordMultiSet(int sequenceId) {
+	public static Map<String, Integer> getWordMultiSet(int sequenceId)
+			throws SQLException {
 		return getWordMultiSet(sequenceId, WordSources.ALL);
 	}
-	
+
 	public static Set<Integer> getCrossrefsLeaving(int sequenceId,
-			CrossrefTypes types) {
+			CrossrefTypes types) throws SQLException {
 		Set<Integer> out = new HashSet<>();
 		ResultSet rs;
-		try {
-			rs = st.executeQuery("SELECT otherSeq_Ref FROM Cross_Refs WHERE ourSeq_Ref="
-					+ Integer.toString(sequenceId) + types.getStmt() + ";");
-			while (rs.next()) {
-				out.add(rs.getInt(1));
-			}
-		} catch (SQLException e) {
-			throw new RuntimeException(e);
+
+		rs = st.executeQuery("SELECT otherSeq_Ref FROM Cross_Refs WHERE ourSeq_Ref="
+				+ Integer.toString(sequenceId) + types.getStmt() + ";");
+		while (rs.next()) {
+			out.add(rs.getInt(1));
 		}
+
 		return out;
 	}
 
-	public static Set<Integer> getCrossrefsLeaving(int sequenceId) {
+	public static Set<Integer> getCrossrefsLeaving(int sequenceId)
+			throws SQLException {
 		return getCrossrefsLeaving(sequenceId, CrossrefTypes.ALL);
 	}
 
 	public static Map<Integer, LinkedList<Integer>> getCrossrefsLeaving(
-			Iterable<Integer> group, CrossrefTypes types) {
+			Iterable<Integer> group, CrossrefTypes types) throws SQLException {
 		Map<Integer, LinkedList<Integer>> out = new TreeMap<Integer, LinkedList<Integer>>();
 		String in_str = "(";
 		for (Integer i : group) {
@@ -170,53 +157,50 @@ public final class MySQLHandler {
 		}
 		in_str += ")";
 		ResultSet rs;
-		try {
-			rs = st.executeQuery("SELECT * FROM Cross_Refs WHERE ourSeq_Ref IN"
-					+ in_str + types.getStmt() + ";");
-			while (rs.next()) {
-				LinkedList<Integer> dests = out.get(rs.getInt(1));
-				if (dests != null) {
-					dests.add(rs.getInt(2));
-				} else {
-					dests = new LinkedList<>();
-					dests.add(rs.getInt(2));
-					out.put(rs.getInt(1), dests);
-				}
 
+		rs = st.executeQuery("SELECT * FROM Cross_Refs WHERE ourSeq_Ref IN"
+				+ in_str + types.getStmt() + ";");
+		while (rs.next()) {
+			LinkedList<Integer> dests = out.get(rs.getInt(1));
+			if (dests != null) {
+				dests.add(rs.getInt(2));
+			} else {
+				dests = new LinkedList<>();
+				dests.add(rs.getInt(2));
+				out.put(rs.getInt(1), dests);
 			}
-		} catch (SQLException e) {
-			throw new RuntimeException(e);
+
 		}
+
 		return out;
 	}
 
 	public static Map<Integer, LinkedList<Integer>> getCrossrefsLeaving(
-			Iterable<Integer> group) {
+			Iterable<Integer> group) throws SQLException {
 		return getCrossrefsLeaving(group, CrossrefTypes.ALL);
 	}
 
 	public static Set<Integer> getCrossrefsInto(int sequenceId,
-			CrossrefTypes types) {
+			CrossrefTypes types) throws SQLException {
 		Set<Integer> out = new HashSet<>();
 		ResultSet rs;
-		try {
-			rs = st.executeQuery("SELECT ourSeq_Ref FROM Cross_Refs WHERE otherSeq_Ref="
-					+ Integer.toString(sequenceId) + types.getStmt() + ";");
-			while (rs.next()) {
-				out.add(rs.getInt(1));
-			}
-		} catch (SQLException e) {
-			throw new RuntimeException(e);
+
+		rs = st.executeQuery("SELECT ourSeq_Ref FROM Cross_Refs WHERE otherSeq_Ref="
+				+ Integer.toString(sequenceId) + types.getStmt() + ";");
+		while (rs.next()) {
+			out.add(rs.getInt(1));
 		}
+
 		return out;
 	}
 
-	public static Set<Integer> getCrossrefsInto(int sequenceId) {
+	public static Set<Integer> getCrossrefsInto(int sequenceId)
+			throws SQLException {
 		return getCrossrefsInto(sequenceId, CrossrefTypes.ALL);
 	}
-	
+
 	public static Map<Integer, LinkedList<Integer>> getCrossrefsInto(
-			Iterable<Integer> group, CrossrefTypes types) {
+			Iterable<Integer> group, CrossrefTypes types) throws SQLException {
 		Map<Integer, LinkedList<Integer>> out = new TreeMap<Integer, LinkedList<Integer>>();
 		String in_str = "(";
 		for (Integer i : group) {
@@ -227,76 +211,74 @@ public final class MySQLHandler {
 		}
 		in_str += ")";
 		ResultSet rs;
-		try {
-			rs = st.executeQuery("SELECT * FROM Cross_Refs WHERE otherSeq_Ref IN"
-					+ in_str + types.getStmt() + ";");
-			while (rs.next()) {
-				LinkedList<Integer> srcs = out.get(rs.getInt(2));
-				if (srcs != null) {
-					srcs.add(rs.getInt(1));
-				} else {
-					srcs = new LinkedList<>();
-					srcs.add(rs.getInt(1));
-					out.put(rs.getInt(2), srcs);
-				}
 
+		rs = st.executeQuery("SELECT * FROM Cross_Refs WHERE otherSeq_Ref IN"
+				+ in_str + types.getStmt() + ";");
+		while (rs.next()) {
+			LinkedList<Integer> srcs = out.get(rs.getInt(2));
+			if (srcs != null) {
+				srcs.add(rs.getInt(1));
+			} else {
+				srcs = new LinkedList<>();
+				srcs.add(rs.getInt(1));
+				out.put(rs.getInt(2), srcs);
 			}
-		} catch (SQLException e) {
-			throw new RuntimeException(e);
+
 		}
+
 		return out;
 	}
-	
+
 	public static Map<Integer, LinkedList<Integer>> getCrossrefsInto(
-			Iterable<Integer> group) {
+			Iterable<Integer> group) throws SQLException {
 		return getCrossrefsInto(group, CrossrefTypes.ALL);
 	}
-	
-	public static String getDescription(int id) {
-		try {
-			ResultSet rs = st.executeQuery("SELECT Name FROM Sequences WHERE SID=" + Integer.toString(id) + ";");
-			if(rs.next()) return rs.getString(1);
-		} catch (SQLException e) {
-			throw new RuntimeException(e);
-		}
+
+	public static String getDescription(int id) throws SQLException {
+
+		ResultSet rs = st.executeQuery("SELECT Name FROM Sequences WHERE SID="
+				+ Integer.toString(id) + ";");
+		if (rs.next())
+			return rs.getString(1);
+
 		return null;
 	}
-	
-	public static int getAuthorYear(int id) {
-		try {
-			ResultSet rs = st.executeQuery("SELECT Year_Created FROM Authors WHERE SID=" + Integer.toString(id) + ";");
-			if(rs.next()) return rs.getInt(1);
-		} catch (SQLException e) {
-			throw new RuntimeException(e);
-		}
+
+	public static int getAuthorYear(int id) throws SQLException {
+
+		ResultSet rs = st
+				.executeQuery("SELECT Year_Created FROM Authors WHERE SID="
+						+ Integer.toString(id) + ";");
+		if (rs.next())
+			return rs.getInt(1);
+
 		return -1;
 	}
-	
-	public static Set<Integer> getSequencesWithKeywords(String keyword) {
+
+	public static Set<Integer> getSequencesWithKeywords(String keyword)
+			throws SQLException {
 		HashSet<Integer> ids = new HashSet<>();
-		try {
-			ResultSet rs = st.executeQuery("SELECT SID FROM Key_Words WHERE K_Word LIKE '"
-					+ keyword + "';");
-			while(rs.next()) {
-				ids.add(rs.getInt(1));
-			}
-		} catch (SQLException e) {
-			throw new RuntimeException(e);
+
+		ResultSet rs = st
+				.executeQuery("SELECT SID FROM Key_Words WHERE K_Word LIKE '"
+						+ keyword + "';");
+		while (rs.next()) {
+			ids.add(rs.getInt(1));
 		}
+
 		return ids;
 	}
-	
-	public static Set<String> getContributors(int id) {
+
+	public static Set<String> getContributors(int id) throws SQLException {
 		Set<String> out = new HashSet<>();
-		try {
-			ResultSet rs = st.executeQuery("SELECT Name FROM Contributors WHERE SID="
-					+ Integer.toString(id) + ";");
-			while(rs.next()) {
-				out.add(rs.getString(1));
-			}
-		} catch (SQLException e) {
-			throw new RuntimeException(e);
+
+		ResultSet rs = st
+				.executeQuery("SELECT Name FROM Contributors WHERE SID="
+						+ Integer.toString(id) + ";");
+		while (rs.next()) {
+			out.add(rs.getString(1));
 		}
+
 		return out;
 	}
 }

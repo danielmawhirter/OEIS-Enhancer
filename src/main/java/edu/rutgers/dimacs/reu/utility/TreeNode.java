@@ -1,10 +1,13 @@
 package edu.rutgers.dimacs.reu.utility;
+
 //utility, tree structure containing objects
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -24,7 +27,7 @@ public class TreeNode<T> {
 	public T getObject() {
 		return this.object;
 	}
-	
+
 	public void setObject(T object) {
 		this.object = object;
 	}
@@ -38,11 +41,11 @@ public class TreeNode<T> {
 		node.parent = this;
 		this.children.add(node);
 	}
-	
+
 	public void removeChild(TreeNode<T> node) {
 		this.children.remove(node);
 	}
-	
+
 	public void clearChildren() {
 		this.children.clear();
 	}
@@ -74,13 +77,11 @@ public class TreeNode<T> {
 		return this.parent;
 	}
 
-	public static TreeNode<String> buildTree(String file_path) {
+	public static TreeNode<String> buildTree(String file_path)
+			throws IOException {
 		TreeNode<String> root = null;
-		try (BufferedReader br = new BufferedReader(new FileReader(file_path))) {
-			root = buildTreeRecursive(br);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		BufferedReader br = new BufferedReader(new FileReader(file_path));
+		root = buildTreeRecursive(br);
 		return root;
 	}
 
@@ -94,15 +95,12 @@ public class TreeNode<T> {
 		return node;
 	}
 
-	public static void outputTree(TreeNode<?> root, String outfile) {
-		try {
-			PrintWriter pw = new PrintWriter(outfile, "UTF-8");
-			outputTreeStream(root, pw);
-			pw.flush();
-			pw.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+	public static void outputTree(TreeNode<?> root, String outfile)
+			throws FileNotFoundException, UnsupportedEncodingException {
+		PrintWriter pw = new PrintWriter(outfile, "UTF-8");
+		outputTreeStream(root, pw);
+		pw.flush();
+		pw.close();
 	}
 
 	private static void outputTreeStream(TreeNode<?> root, PrintWriter pw) {
@@ -113,39 +111,37 @@ public class TreeNode<T> {
 			outputTreeStream(child, pw);
 		}
 	}
-	
-	public static void outputTreeJSON(TreeNode<?> root, String outfile) {
-		try {
+
+	public static void outputTreeJSON(TreeNode<?> root, String outfile) throws FileNotFoundException, UnsupportedEncodingException {
 			PrintWriter pw = new PrintWriter(outfile, "UTF-8");
 			outputTreeJSONStream(root, pw);
 			pw.flush();
 			pw.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
 	}
-	
+
 	private static void outputTreeJSONStream(TreeNode<?> root, PrintWriter pw) {
 		pw.write("{\n\"name\":\"");
 		pw.write(root.toString());
 		pw.write("\"");
 		int childCount = root.getChildCount();
 		boolean hasChildren = childCount > 0;
-		if(hasChildren) {
+		if (hasChildren) {
 			pw.write(",\"children\": [");
 		}
 		for (TreeNode<?> child : root.getChildren()) {
 			outputTreeJSONStream(child, pw);
-			if(--childCount > 0) pw.write(",");
+			if (--childCount > 0)
+				pw.write(",");
 		}
-		if(hasChildren) 
+		if (hasChildren)
 			pw.write("]\n");
 		pw.write("}");
 	}
-	
+
 	@Override
 	public boolean equals(Object o) {
-		return o instanceof TreeNode&& ((TreeNode<?>)o).object.equals(this.object);
+		return o instanceof TreeNode
+				&& ((TreeNode<?>) o).object.equals(this.object);
 	}
 
 }
