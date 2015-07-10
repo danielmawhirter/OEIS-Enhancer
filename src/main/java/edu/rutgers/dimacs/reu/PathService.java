@@ -2,8 +2,13 @@ package edu.rutgers.dimacs.reu;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Queue;
 import java.util.LinkedList;
@@ -71,7 +76,7 @@ public class PathService {
 		for (GraphNode gn : graph.getNodeSet()) {
 			int gn_int = Integer.parseInt(gn.toString());
 			Set<Integer> neighbor_ints = MySQLHandler
-					.getCrossrefsLeaving(gn_int, CrossrefTypes.NORMALONLY);
+					.getCrossrefsLeaving(gn_int, CrossrefTypes.NORMALONLY); // a database call per node of largest part of graph
 			Set<Integer> entering_ints = MySQLHandler.getCrossrefsInto(gn_int, CrossrefTypes.NORMALONLY);
 			neighbor_ints.addAll(entering_ints);
 
@@ -102,11 +107,11 @@ public class PathService {
 		return result;
 	}
 
-	public static String finalJSON(Graph graph, HashSet<Integer> path_ints) {
-		String result = "{\n\"links\":[\n";
-		result = result + edgesJSON(graph);
-		result = result + "], \"nodes\":[\n";
-		result = result + nodesJSON(graph, path_ints) + "]\n}";
+	public static String finalJSON(Graph graph, HashSet<Integer> path_ints) throws SQLException {
+		String result = "{\n\"nodes\":[\n";
+		result = result + nodesJSON(graph, path_ints);
+		result = result + "], \"links\":[\n";
+		result = result + edgesJSON(graph) + "]\n}";
 
 		return result;
 		// return
@@ -165,7 +170,7 @@ public class PathService {
 			// System.out.println("curr_int: " + curr_int);
 
 			Set<Integer> neighbors_ints = MySQLHandler
-					.getCrossrefsLeaving(curr_int, CrossrefTypes.NORMALONLY);
+					.getCrossrefsLeaving(curr_int, CrossrefTypes.NORMALONLY); //expensive BFS
 			Set<Integer> entering_ints = MySQLHandler
 					.getCrossrefsInto(curr_int, CrossrefTypes.NORMALONLY);
 			neighbors_ints.addAll(entering_ints);
@@ -209,7 +214,7 @@ public class PathService {
 			for (int n : path) {
 				all_ints.add(n);
 				Set<Integer> neighbors_ints = MySQLHandler
-						.getCrossrefsLeaving(n, CrossrefTypes.NORMALONLY);
+						.getCrossrefsLeaving(n, CrossrefTypes.NORMALONLY); //for each node on each path
 				Set<Integer> entering_ints = MySQLHandler.getCrossrefsInto(n, CrossrefTypes.NORMALONLY);
 				neighbors_ints.addAll(entering_ints);
 
@@ -220,7 +225,7 @@ public class PathService {
 		return all_ints;
 	}
 
-	public static String nodesJSON(Graph graph, HashSet<Integer> path_ints) {
+	public static String nodesJSON(Graph graph, HashSet<Integer> path_ints) throws SQLException {
 
 		String result = "";
 
@@ -228,9 +233,29 @@ public class PathService {
 
 		for (GraphNode gn : nodes) {
 			int gn_int = Integer.parseInt(gn.toString());
+			Map<String, Integer> allWords = MySQLHandler.getWordMultiSet(gn_int); //simultaneous would be good
+			allWords = sortByComparator(allWords);
+			ArrayList<String> selectedWords = new ArrayList<String>();
+
+			int totalFreq = 0;
+			for (String word : allWords.keySet()) {
+				totalFreq += allWords.get(word);
+			}
+			for (String word : allWords.keySet()) {
+				int wordFreq = allWords.get(word);
+				if ((double) wordFreq / totalFreq > 0.25) {
+					selectedWords.add(word);
+				}
+			}
+			
+			String label = "";
+			for (String selected : selectedWords) {
+				label = label + "-" + selected;
+			}
+			gn.id += label;
+
 			if (path_ints.contains(gn_int)) {
-				result = result + ",\n{\"name\":\"" + gn.toString()
-						+ "\", \"path\":true}";
+				result = result + ",\n{\"name\":\"" + gn.toString() + "\", \"path\":true}";
 			} else {
 				result = result + ",\n{\"name\":\"" + gn.toString() + "\"}";
 			}
@@ -242,5 +267,26 @@ public class PathService {
 
 		return result;
 	}
+	
+	private static Map<String, Integer> sortByComparator(Map<String, Integer> unsortMap) {
+
+		List<Entry<String, Integer>> list = new LinkedList<Entry<String, Integer>>(unsortMap.entrySet());
+
+		// Sorting the list based on values
+		Collections.sort(list, new Comparator<Entry<String, Integer>>() {
+			public int compare(Entry<String, Integer> o1, Entry<String, Integer> o2) {
+				return o2.getValue().compareTo(o1.getValue());
+			}
+		});
+
+		// Maintaining insertion order with the help of LinkedList
+		Map<String, Integer> sortedMap = new LinkedHashMap<String, Integer>();
+		for (Entry<String, Integer> entry : list) {
+			sortedMap.put(entry.getKey(), entry.getValue());
+		}
+
+		return sortedMap;
+	}
+
 
 }

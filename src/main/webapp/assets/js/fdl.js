@@ -2,13 +2,14 @@
 
 // assign menu buttons to actions
 document.getElementById("mainViewButton").onclick = hierarchyLayout;
-document.getElementById("relationViewButton").onclick = relationLayout;
-document.getElementById("addToRelationViewButton").onclick = addToRelationView;
+document.getElementById("relationViewButton").onclick = pathLayout;
+document.getElementById("addToRelationViewButton").onclick = addToPathView;
 document.getElementById("resumeForceButton").onclick = resumeForce;
 document.getElementById("stopForceButton").onclick = stopForce;
 
 var textField = document.getElementById("sequenceId");
-var enableAddition = false, additionMade = false, additionPending = false;;
+var enableAddition = false, additionMade = false, additionPending = false;
+;
 var primaryNodes = null;
 var force = null;
 var nodes = null, links = null;
@@ -248,16 +249,16 @@ function hierarchyLayout() {
 
 	function dragged(d) {
 		d.px += d3.event.dx;
-        d.py += d3.event.dy;
-        d.x += d3.event.dx;
-        d.y += d3.event.dy; 
+		d.py += d3.event.dy;
+		d.x += d3.event.dx;
+		d.y += d3.event.dy;
 		tick();
 	}
-	
+
 	function dragend(d) {
-        tick();
+		tick();
 	}
-	
+
 	function expand(n) {
 		n.fixed = false;
 		if (n.children) {
@@ -323,9 +324,9 @@ function hierarchyLayout() {
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // End Hierarchy View
 
-// Relation View
+// Path View
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-function relationLayout() {
+function pathLayout() {
 	clearSVG();
 	console.log("starting path");
 	var width = window.innerWidth, height = window.innerHeight, root;
@@ -361,27 +362,24 @@ function relationLayout() {
 	resize();
 
 	function update() {
-		console.log(additionMade, additionPending);
-		console.log(links);
 		force.nodes(nodes).links(links).start();
 
 		link_elements = link_elements.data(links, function(d) {
 			return d.id;
-		});
+		}).attr("stroke-width", strokeWidth).style("stroke", stroke);
 		link_elements.exit().remove();
 		link_elements.enter().insert("line", ".node").attr("class", "link")
-				.attr("stroke-width", 1.5 / currentZoomLevel + "px");
+		.attr("stroke-width", strokeWidth).style("stroke", stroke);
 
 		node_elements = node_elements.data(nodes, function(d) {
 			return d.name;
-		});
+		})
 		node_elements.exit().remove();
 
 		var nodeEnter = node_elements.enter().append("g").attr("class", "node")
-				.on("dblclick", dblclick).call(drag);
+				.call(drag).on("click", click).on("contextmenu", rightClick);
 
-		nodeEnter.append("circle").attr("r", size).attr("stroke-width",
-				1.0 / currentZoomLevel + "px");
+		nodeEnter.append("circle").attr("r", size);
 
 		nodeEnter.append("text")
 		// .attr("dx", ".35em")
@@ -389,9 +387,7 @@ function relationLayout() {
 			return d.name.split(":")[0];
 		}).attr("font-size", 1.0 / currentZoomLevel + "em");
 
-		node_elements.select("circle").style("fill", function(d) {
-			return d.color;
-		});
+		node_elements.select("circle").style("fill", fillColor);
 		additionMade = false;
 	}
 
@@ -414,6 +410,24 @@ function relationLayout() {
 		});
 	}
 
+	function strokeWidth(d) {
+		if(d.source && d.source.path && d.target && d.target.path) return 8.0 / currentZoomLevel + "px";
+		else return 1.0 / currentZoomLevel + "px";
+	}
+	
+	function stroke(d) {
+		if(d.source && d.source.path && d.target && d.target.path) return "black";
+		else return "#91B5FF";
+	}
+	
+	function fillColor(d) {
+		if(d.path) {
+			if(primaryNodes.indexOf(d.name.split("-")[0]) != -1) return "red";
+			else return "blue";
+		}
+		else return "gray";
+	}	
+	
 	function resize() {
 		width = window.innerWidth;
 		height = window.innerHeight;
@@ -430,11 +444,21 @@ function relationLayout() {
 				1.0 / currentZoomLevel + "px");
 		node_elements.select("text").attr("font-size",
 				1.0 / currentZoomLevel + "em");
-		link_elements.attr("stroke-width", 1.5 / currentZoomLevel + "px");
+		link_elements.attr("stroke-width", strokeWidth).style("stroke", stroke);
 	}
 	
-	function dblclick(d) {
+	function rightClick(d) {
+		d3.event.preventDefault();
 		d.fixed = false;
+	}
+
+	function click(d) {
+		if (d3.event.defaultPrevented) return;
+		var num = d.name.split("-")[0];
+		if (isNaN(num))
+			alert("Node id: " + num);
+		else
+			window.open("http://oeis.org/A" + num);
 	}
 
 	function dragstarted(d) {
@@ -444,14 +468,14 @@ function relationLayout() {
 
 	function dragged(d) {
 		d.px += d3.event.dx;
-        d.py += d3.event.dy;
-        d.x += d3.event.dx;
-        d.y += d3.event.dy; 
+		d.py += d3.event.dy;
+		d.x += d3.event.dx;
+		d.y += d3.event.dy;
 		tick();
 	}
-	
+
 	function dragend(d) {
-        tick();
+		tick();
 	}
 
 	d3.select("body").on(
@@ -500,11 +524,11 @@ function relationLayout() {
 	// deal with d3, check boolean flag on tick
 }
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// End Relation View
+// End Path View
 
-// Add To Relation View
+// Add To Path View
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-function addToRelationView() {
+function addToPathView() {
 	if (enableAddition) {
 		if (additionPending) {
 			alert("hold on, waiting for server");
@@ -514,6 +538,7 @@ function addToRelationView() {
 			alert(textField.value + " is not a sequence number");
 			return;
 		}
+		if(primaryNodes.indexOf(textField.value) != -1) return;
 		additionPending = true;
 		var addedSequence = textField.value;
 		queryString = "pathAddition/" + textField.value + "/";
@@ -543,8 +568,9 @@ function addToRelationView() {
 				var newNodes = [];
 				while (nodes.length > 0 && json.nodes.length > 0) {
 					if (nodes[0].name == json.nodes[0].name) {
-						newNodes.push(nodes.shift());
-						json.nodes.shift();
+						var current = nodes.shift();
+						current.path = current.path || json.nodes.shift().path;
+						newNodes.push(current);
 					} else if (nodes[0].name < json.nodes[0].name) {
 						newNodes.push(nodes.shift());
 					} else {
@@ -573,7 +599,7 @@ function addToRelationView() {
 	// add to global nodes/links lists, set boolean flag, call force.resume
 }
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// End Add To Relation View
+// End Add To Path View
 
 // merge arrays of links sorted lexically by id
 function mergeInLinks(addLinks) {
