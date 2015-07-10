@@ -102,7 +102,7 @@ function hierarchyLayout() {
 		node_elements.exit().remove();
 
 		var nodeEnter = node_elements.enter().append("g").attr("class", "node")
-				.on("click", click).call(drag);
+				.on("click", click).call(drag).on("contextmenu", rightClick);
 
 		nodeEnter.append("circle").attr("r", size).attr("stroke-width",
 				1.0 / currentZoomLevel + "px");
@@ -241,6 +241,11 @@ function hierarchyLayout() {
 			return; // ignore drag
 		expand(d);
 	}
+	
+	function rightClick(d) {
+		d3.event.preventDefault();
+		d.fixed = false;
+	}
 
 	function dragstarted(d) {
 		d3.event.sourceEvent.stopPropagation();
@@ -340,7 +345,7 @@ function pathLayout() {
 	force = d3.layout.force().linkDistance(120).charge(-120).gravity(.05).on(
 			"tick", tick);
 
-	var zoom = d3.behavior.zoom().scaleExtent([ 0.1, 10 ]).on("zoom", zoomed);
+	var zoom = d3.behavior.zoom().scaleExtent([ 0.01, 100 ]).on("zoom", zoomed);
 
 	var drag = d3.behavior.drag().origin(function(d) {
 		return d;
@@ -383,9 +388,8 @@ function pathLayout() {
 
 		nodeEnter.append("text")
 		// .attr("dx", ".35em")
-		.text(function(d) {
-			return d.name.split(":")[0];
-		}).attr("font-size", 1.0 / currentZoomLevel + "em");
+		.text(filteredText).attr("font-size", 1.0 / currentZoomLevel + "em")
+		.attr("text-anchor", "left");
 
 		node_elements.select("circle").style("fill", fillColor);
 		additionMade = false;
@@ -426,7 +430,18 @@ function pathLayout() {
 			else return "blue";
 		}
 		else return "gray";
-	}	
+	}
+	
+	function allText(d) {
+		return d.name.split(":")[0];
+	}
+	
+	function filteredText(d) {
+		if(d.path || d.name.indexOf("-") != -1) {
+			return d.name.split(":")[0];
+		}
+		return "";
+	}
 	
 	function resize() {
 		width = window.innerWidth;
@@ -442,9 +457,15 @@ function pathLayout() {
 				+ ")scale(" + currentZoomLevel + ")");
 		node_elements.select("circle").attr("r", size).attr("stroke-width",
 				1.0 / currentZoomLevel + "px");
-		node_elements.select("text").attr("font-size",
-				1.0 / currentZoomLevel + "em");
+		if(currentZoomLevel > 6) { //going to all labels
+			node_elements.select("text").text(allText).attr("font-size",
+					1.0 / currentZoomLevel + "em");
+		} else {
+			node_elements.select("text").text(filteredText).attr("font-size",
+					1.0 / currentZoomLevel + "em");
+		}
 		link_elements.attr("stroke-width", strokeWidth).style("stroke", stroke);
+		console.log(currentZoomLevel * 5.0);
 	}
 	
 	function rightClick(d) {
@@ -515,8 +536,8 @@ function pathLayout() {
 			});
 
 	function size(d) {
-		if (d.size)
-			return Math.max(Math.sqrt(d.size) / 5, 5.0) / currentZoomLevel;
+		if (d.path)
+			return 12.0 / currentZoomLevel;
 		else
 			return 5.0 / currentZoomLevel;
 	}
@@ -541,18 +562,22 @@ function addToPathView() {
 		if(primaryNodes.indexOf(textField.value) != -1) return;
 		additionPending = true;
 		var addedSequence = textField.value;
-		queryString = "pathAddition/" + textField.value + "/";
-		if (primaryNodes.length == 0)
+		//console.log(nodes);
+		queryString = "pathAddition/" + addedSequence + "/";
+		if (nodes.length == 0)
 			queryString = queryString.concat("NONE");
 		else {
 			first = true;
-			for (i = 0; i < primaryNodes.length; i++) {
-				if (first)
-					first = false;
-				else {
-					queryString = queryString.concat("-");
+			for (i = 0; i < nodes.length; i++) {
+				if(nodes[i].path) {
+					if (first)
+						first = false;
+					else {
+						queryString = queryString.concat("-");
+					}
+					queryString = queryString.concat(nodes[i].name.split("-")[0]);
+					//console.log(nodes[i].name);
 				}
-				queryString = queryString.concat(primaryNodes[i]);
 			}
 		}
 		console.log(queryString);
@@ -563,15 +588,18 @@ function addToPathView() {
 				return;
 			}
 			force.stop();
-			// console.log(json);
 			if (json.nodes) {
 				var newNodes = [];
 				while (nodes.length > 0 && json.nodes.length > 0) {
-					if (nodes[0].name == json.nodes[0].name) {
+					var name_node = nodes[0].name.split("-")[0];
+					var name_json = json.nodes[0].name.split("-")[0];
+					
+					if (name_node == name_json) {
 						var current = nodes.shift();
-						current.path = current.path || json.nodes.shift().path;
+						var other = json.nodes.shift();
+						current.path = current.path || other.path;
 						newNodes.push(current);
-					} else if (nodes[0].name < json.nodes[0].name) {
+					} else if (name_node < name_json) {
 						newNodes.push(nodes.shift());
 					} else {
 						newNodes.push(json.nodes.shift());

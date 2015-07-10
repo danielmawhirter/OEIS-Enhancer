@@ -1,7 +1,9 @@
 package edu.rutgers.dimacs.reu;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -9,11 +11,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.Queue;
 import java.util.LinkedList;
 import java.util.Collections;
 import java.util.TreeSet;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import javax.ejb.Lock;
@@ -25,6 +28,10 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.PathParam;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+
 import edu.rutgers.dimacs.reu.utility.*;
 import edu.rutgers.dimacs.reu.utility.MySQLHandler.CrossrefTypes;
 import static javax.ejb.LockType.READ;
@@ -33,11 +40,25 @@ import static javax.ejb.LockType.READ;
 @Singleton
 @Lock(READ)
 public class PathService {
+	LoadingCache<Integer, Collection<Integer>> cache;
 	private final static Logger LOGGER = Logger.getLogger(PathService.class
 			.getName());
 
 	public PathService() throws SQLException, NamingException {
 		MySQLHandler.setup();
+		cache = CacheBuilder.newBuilder().maximumSize(258545)
+				.expireAfterAccess(5, TimeUnit.MINUTES)
+				.build(new CacheLoader<Integer, Collection<Integer>>() {
+					@Override
+					public Collection<Integer> load(Integer node) throws IOException, SQLException {
+						Collection<Integer> neighbors_ints = MySQLHandler
+								.getCrossrefsLeaving(node, CrossrefTypes.NORMALONLY); //expensive BFS
+						Collection<Integer> entering_ints = MySQLHandler
+								.getCrossrefsInto(node, CrossrefTypes.NORMALONLY);
+						neighbors_ints.addAll(entering_ints);
+						return neighbors_ints;
+					}
+				});
 		System.out.println("Path Service Instanciated");
 	}
 
@@ -47,23 +68,59 @@ public class PathService {
 	public String getAddition(@PathParam("newNode") String newNode,
 			@PathParam("pathTo") String existing) {
 		try {
-			ArrayList<ArrayList<Integer>> paths = getShortestPaths(newNode,
+			//log
+			LOGGER.info("query: " + newNode + "/" + existing);
+			long timeStart = System.nanoTime();
+			
+			//run
+			ArrayList<ArrayList<Integer>> paths = getShortestPath(newNode,
 					existing);
+			
+			//log
+			LOGGER.info("getShortestPath took "
+				+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
+				+ "ms");
+			timeStart = System.nanoTime();
+			
+			//run
 			Graph graph = buildGraph(neighborhoods(paths));
 
+			//log
+			LOGGER.info("building graph took "
+				+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
+				+ "ms");
+			timeStart = System.nanoTime();
+			
+			//run
 			HashSet<Integer> paths_set = new HashSet<Integer>();
 			for (ArrayList<Integer> path : paths) {
 				paths_set.addAll(path);
 			}
 
-			return finalJSON(graph, paths_set);
-		} catch (SQLException e) {
+			//log
+			LOGGER.info("combining paths took "
+				+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
+				+ "ms");
+			timeStart = System.nanoTime();
+			
+			//run
+			String result = finalJSON(graph, paths_set);
+
+			//log
+			LOGGER.info("generating JSON took "
+				+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
+				+ "ms");
+			timeStart = System.nanoTime();
+
+			return result;
+		
+		} catch (ExecutionException e) {
 			e.printStackTrace();
-			return "{\"error\": \"sql error\"}";
+			return "{\"error\": \"cache error\"}";
 		}
 	}
 
-	public static Graph buildGraph(HashSet<Integer> ints) throws SQLException {
+	public Graph buildGraph(HashSet<Integer> ints) throws ExecutionException {
 		Graph graph = new Graph(false, "asdf");
 
 		// add all the nodes
@@ -75,12 +132,7 @@ public class PathService {
 		// and if the neighbor_gn exists, add the edge
 		for (GraphNode gn : graph.getNodeSet()) {
 			int gn_int = Integer.parseInt(gn.toString());
-			Set<Integer> neighbor_ints = MySQLHandler
-					.getCrossrefsLeaving(gn_int, CrossrefTypes.NORMALONLY); // a database call per node of largest part of graph
-			Set<Integer> entering_ints = MySQLHandler.getCrossrefsInto(gn_int, CrossrefTypes.NORMALONLY);
-			neighbor_ints.addAll(entering_ints);
-
-			for (int neighbor_int : neighbor_ints) {
+			for (int neighbor_int : cache.get(gn_int)) {
 				String neighbor_str = Integer.toString(neighbor_int);
 				GraphNode neighbor_gn = graph.getNode(neighbor_str);
 				if (neighbor_gn != null) {
@@ -100,6 +152,10 @@ public class PathService {
 			result = result + ",\n{" + edge.toString() + "}";
 		}
 
+		if (result.equals("")) {
+			return result;
+		}
+		
 		if (result.charAt(0) == ',') {
 			result = result.substring(1);
 		}
@@ -107,7 +163,7 @@ public class PathService {
 		return result;
 	}
 
-	public static String finalJSON(Graph graph, HashSet<Integer> path_ints) throws SQLException {
+	public String finalJSON(Graph graph, HashSet<Integer> path_ints) {
 		String result = "{\n\"nodes\":[\n";
 		result = result + nodesJSON(graph, path_ints);
 		result = result + "], \"links\":[\n";
@@ -117,8 +173,8 @@ public class PathService {
 		// return
 	}
 
-	public static ArrayList<ArrayList<Integer>> getShortestPaths(String source,
-			String dests) throws SQLException {
+	public ArrayList<ArrayList<Integer>> getShortestPath(String source,
+			String dests) throws ExecutionException {
 		ArrayList<ArrayList<Integer>> paths = new ArrayList<ArrayList<Integer>>();
 
 		Integer source_int = Integer.parseInt(source);
@@ -130,9 +186,9 @@ public class PathService {
 			return paths;
 		}
 
-		// store dests in HashSet<Integer>
+		// store dests in TreeSet<Integer>
 		String[] destinations = dests.split("-");
-		HashSet<Integer> dest_ints = new HashSet<Integer>();
+		TreeSet<Integer> dest_ints = new TreeSet<Integer>();
 		for (int i = 0; i < destinations.length; i++) {
 			dest_ints.add(Integer.parseInt(destinations[i]));
 		}
@@ -162,20 +218,15 @@ public class PathService {
 		visited.add(source_int);
 
 		while (!queue.isEmpty()) {
-			if (dests_visited.containsAll(dest_ints)) {
+			if (dests_visited.size() > 0) {
 				break;
 			}
 
 			Integer curr_int = queue.remove();
 			// System.out.println("curr_int: " + curr_int);
 
-			Set<Integer> neighbors_ints = MySQLHandler
-					.getCrossrefsLeaving(curr_int, CrossrefTypes.NORMALONLY); //expensive BFS
-			Set<Integer> entering_ints = MySQLHandler
-					.getCrossrefsInto(curr_int, CrossrefTypes.NORMALONLY);
-			neighbors_ints.addAll(entering_ints);
 
-			for (int n : neighbors_ints) {
+			for (int n : cache.get(curr_int)) {
 				if (visited.contains(n)) {
 					continue;
 				}
@@ -189,6 +240,13 @@ public class PathService {
 					dests_visited.add(n);
 				}
 			}
+		}
+		
+		if (dests_visited.size() == 0) {
+			ArrayList<Integer> path_ints = new ArrayList<Integer>();
+			path_ints.add(source_int);
+			paths.add(path_ints);
+			return paths;
 		}
 
 		for (int dest_int : dests_visited) {
@@ -206,47 +264,51 @@ public class PathService {
 		return paths;
 	}
 
-	public static HashSet<Integer> neighborhoods(
-			ArrayList<ArrayList<Integer>> paths_ints) throws SQLException {
+	public HashSet<Integer> neighborhoods(
+			ArrayList<ArrayList<Integer>> paths_ints) throws ExecutionException {
 		HashSet<Integer> all_ints = new HashSet<Integer>();
 
 		for (ArrayList<Integer> path : paths_ints) {
 			for (int n : path) {
 				all_ints.add(n);
-				Set<Integer> neighbors_ints = MySQLHandler
-						.getCrossrefsLeaving(n, CrossrefTypes.NORMALONLY); //for each node on each path
-				Set<Integer> entering_ints = MySQLHandler.getCrossrefsInto(n, CrossrefTypes.NORMALONLY);
-				neighbors_ints.addAll(entering_ints);
-
-				all_ints.addAll(neighbors_ints);
+				all_ints.addAll(cache.get(n));
 			}
 		}
 
 		return all_ints;
 	}
 
-	public static String nodesJSON(Graph graph, HashSet<Integer> path_ints) throws SQLException {
+	public String nodesJSON(Graph graph, HashSet<Integer> path_ints) {
 
 		String result = "";
+		
+		if (path_ints.size() == 0) {
+			return result;
+		}
 
 		TreeSet<GraphNode> nodes = new TreeSet<>(graph.getNodeSet());
 
 		for (GraphNode gn : nodes) {
 			int gn_int = Integer.parseInt(gn.toString());
-			Map<String, Integer> allWords = MySQLHandler.getWordMultiSet(gn_int); //simultaneous would be good
-			allWords = sortByComparator(allWords);
 			ArrayList<String> selectedWords = new ArrayList<String>();
+			try {
+				Map<String, Integer> allWords = MySQLHandler.getWordMultiSet(gn_int);
+				allWords = sortByComparator(allWords);
 
-			int totalFreq = 0;
-			for (String word : allWords.keySet()) {
-				totalFreq += allWords.get(word);
-			}
-			for (String word : allWords.keySet()) {
-				int wordFreq = allWords.get(word);
-				if ((double) wordFreq / totalFreq > 0.25) {
-					selectedWords.add(word);
+				int totalFreq = 0;
+				for (String word : allWords.keySet()) {
+					totalFreq += allWords.get(word);
 				}
-			}
+				for (String word : allWords.keySet()) {
+					int wordFreq = allWords.get(word);
+					if ((double) wordFreq / totalFreq > 0.25) {
+						selectedWords.add(word);
+					}
+				}
+			} catch (SQLException e) {
+				e.printStackTrace();
+			} //simultaneous would be good
+			
 			
 			String label = "";
 			for (String selected : selectedWords) {
@@ -260,7 +322,7 @@ public class PathService {
 				result = result + ",\n{\"name\":\"" + gn.toString() + "\"}";
 			}
 		}
-
+		
 		if (result.charAt(0) == ',') {
 			result = result.substring(1);
 		}
@@ -268,7 +330,7 @@ public class PathService {
 		return result;
 	}
 	
-	private static Map<String, Integer> sortByComparator(Map<String, Integer> unsortMap) {
+	private Map<String, Integer> sortByComparator(Map<String, Integer> unsortMap) {
 
 		List<Entry<String, Integer>> list = new LinkedList<Entry<String, Integer>>(unsortMap.entrySet());
 

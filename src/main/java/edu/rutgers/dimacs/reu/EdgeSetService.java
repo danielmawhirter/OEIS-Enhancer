@@ -59,10 +59,9 @@ public class EdgeSetService {
 
 		String logString = "Query: " + graph + "/" + query + "\n";
 		
-		long timeStart;
 		HashMap<String, String> leafToCluster;
 
-		timeStart = System.nanoTime();
+		long timeStart = System.nanoTime();
 		HierarchyTree tree = null;
 		try {
 			tree = cache.get(graph);
