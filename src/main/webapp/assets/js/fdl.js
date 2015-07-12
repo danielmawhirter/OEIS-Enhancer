@@ -9,7 +9,6 @@ document.getElementById("stopForceButton").onclick = stopForce;
 
 var textField = document.getElementById("sequenceId");
 var enableAddition = false, additionMade = false, additionPending = false;
-;
 var primaryNodes = null;
 var force = null;
 var nodes = null, links = null;
@@ -23,6 +22,8 @@ function clearSVG() {
 	force = null;
 	nodes = null;
 	links = null;
+	document.getElementById("incFontSize").onclick = null;
+	document.getElementById("decFontSize").onclick = null;
 }
 
 function resumeForce() {
@@ -57,6 +58,9 @@ function hierarchyLayout() {
 	}).on("dragstart", dragstarted).on("drag", dragged).on("dragend", dragend);
 
 	var currentZoomLevel = 1.0;
+	var fontSize = 1.0;
+	var nodeSize = 5.0;
+	var sizeMultiplier = 1.1;
 
 	var svg = d3.select("body").append("svg");
 	var largestField = svg.append("g").attr("class", "fullField").call(zoom);
@@ -68,6 +72,23 @@ function hierarchyLayout() {
 			.selectAll(".node");
 
 	d3.select(window).on("resize", resize);
+	
+	document.getElementById("incFontSize").onclick = function() {
+		fontSize *= sizeMultiplier;
+		refreshAfterZoom();
+	};
+	document.getElementById("decFontSize").onclick = function() {
+		fontSize /= sizeMultiplier;
+		refreshAfterZoom();
+	};
+	document.getElementById("incNodeSize").onclick = function() {
+		nodeSize *= sizeMultiplier;
+		refreshAfterZoom();
+	};
+	document.getElementById("decNodeSize").onclick = function() {
+		nodeSize /= sizeMultiplier;
+		refreshAfterZoom();
+	};
 
 	// loads hierarchy tree from json resource FILE
 	d3.json("assets/json/" + selectedGraph + ".json", function(error, json) {
@@ -175,10 +196,14 @@ function hierarchyLayout() {
 		currentZoomLevel = d3.event.scale;
 		zoomableField.attr("transform", "translate(" + d3.event.translate
 				+ ")scale(" + currentZoomLevel + ")");
+		refreshAfterZoom();
+	}
+	
+	function refreshAfterZoom() {
 		node_elements.select("circle").attr("r", size).attr("stroke-width",
 				1.0 / currentZoomLevel + "px");
 		node_elements.select("text").attr("font-size",
-				1.0 / currentZoomLevel + "em");
+				fontSize / currentZoomLevel + "em");
 		link_elements.attr("stroke-width", 1.5 / currentZoomLevel + "px");
 	}
 
@@ -230,9 +255,9 @@ function hierarchyLayout() {
 
 	function size(d) {
 		if (d.size)
-			return Math.max(Math.sqrt(d.size) / 5, 5.0) / currentZoomLevel;
+			return Math.max(nodeSize * Math.sqrt(d.size) / 20, nodeSize) / currentZoomLevel;
 		else
-			return 5.0 / currentZoomLevel;
+			return nodeSize / currentZoomLevel;
 	}
 
 	// Toggle children on click.
@@ -293,14 +318,16 @@ function hierarchyLayout() {
 			var queryString = "incidentEdges/" + selectedGraph + "/";
 			var first = true;
 			for (i = 0; i < interests.length; i++) {
-				if (first)
+				if (first) {
 					first = false;
-				else
-					queryString = queryString.concat("-");
-				queryString = queryString.concat(interests[i]);
+					queryString = queryString.concat(interests[i]);
+				}
+				else {
+					queryString = queryString.concat("-" + interests[i]);
+				}
 			}
-			// console.log(queryString);
-			console.log("node count: " + interests.length);
+			console.log(queryString);
+			//console.log("node count: " + interests.length);
 			d3.json(queryString, updateLinks);
 			update();
 		} else {
@@ -352,6 +379,9 @@ function pathLayout() {
 	}).on("dragstart", dragstarted).on("drag", dragged).on("dragend", dragend);
 
 	var currentZoomLevel = 1.0;
+	var fontSize = 1.0;
+	var nodeSize = 5.0;
+	var sizeMultiplier = 1.1;
 
 	var svg = d3.select("body").append("svg");
 	var largestField = svg.append("g").attr("class", "fullField").call(zoom);
@@ -363,6 +393,23 @@ function pathLayout() {
 			.selectAll(".node");
 
 	d3.select(window).on("resize", resize);
+	
+	document.getElementById("incFontSize").onclick = function() {
+		fontSize *= sizeMultiplier;
+		refreshAfterZoom();
+	};
+	document.getElementById("decFontSize").onclick = function() {
+		fontSize /= sizeMultiplier;
+		refreshAfterZoom();
+	};
+	document.getElementById("incNodeSize").onclick = function() {
+		nodeSize *= sizeMultiplier;
+		refreshAfterZoom();
+	};
+	document.getElementById("decNodeSize").onclick = function() {
+		nodeSize /= sizeMultiplier;
+		refreshAfterZoom();
+	};
 
 	resize();
 
@@ -433,12 +480,12 @@ function pathLayout() {
 	}
 	
 	function allText(d) {
-		return d.name.split(":")[0];
+		return d.name;
 	}
 	
 	function filteredText(d) {
 		if(d.path || d.name.indexOf("-") != -1) {
-			return d.name.split(":")[0];
+			return d.name;
 		}
 		return "";
 	}
@@ -455,17 +502,21 @@ function pathLayout() {
 		currentZoomLevel = d3.event.scale;
 		zoomableField.attr("transform", "translate(" + d3.event.translate
 				+ ")scale(" + currentZoomLevel + ")");
+		refreshAfterZoom();
+	}
+	
+	function refreshAfterZoom() {
 		node_elements.select("circle").attr("r", size).attr("stroke-width",
 				1.0 / currentZoomLevel + "px");
-		if(currentZoomLevel > 6) { //going to all labels
+		if(currentZoomLevel > 6) { //all labels
 			node_elements.select("text").text(allText).attr("font-size",
-					1.0 / currentZoomLevel + "em");
+					fontSize / currentZoomLevel + "em");
 		} else {
 			node_elements.select("text").text(filteredText).attr("font-size",
-					1.0 / currentZoomLevel + "em");
+					fontSize / currentZoomLevel + "em");
 		}
 		link_elements.attr("stroke-width", strokeWidth).style("stroke", stroke);
-		console.log(currentZoomLevel * 5.0);
+		//console.log(currentZoomLevel * 5.0);
 	}
 	
 	function rightClick(d) {
@@ -537,9 +588,9 @@ function pathLayout() {
 
 	function size(d) {
 		if (d.path)
-			return 12.0 / currentZoomLevel;
+			return nodeSize * 2.4 / currentZoomLevel;
 		else
-			return 5.0 / currentZoomLevel;
+			return nodeSize / currentZoomLevel;
 	}
 
 	// deal with d3, check boolean flag on tick

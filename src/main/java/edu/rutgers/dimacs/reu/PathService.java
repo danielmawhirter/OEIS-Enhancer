@@ -1,6 +1,5 @@
 package edu.rutgers.dimacs.reu;
 
-import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -50,7 +49,7 @@ public class PathService {
 				.expireAfterAccess(5, TimeUnit.MINUTES)
 				.build(new CacheLoader<Integer, Collection<Integer>>() {
 					@Override
-					public Collection<Integer> load(Integer node) throws IOException, SQLException {
+					public Collection<Integer> load(Integer node) throws SQLException {
 						Collection<Integer> neighbors_ints = MySQLHandler
 								.getCrossrefsLeaving(node, CrossrefTypes.NORMALONLY); //expensive BFS
 						Collection<Integer> entering_ints = MySQLHandler
