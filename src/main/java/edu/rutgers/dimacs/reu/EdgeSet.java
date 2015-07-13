@@ -1,15 +1,22 @@
 package edu.rutgers.dimacs.reu;
-//utility, produces json edge set between subset of antichain
+//utility, produces json edge set induced on subset of antichain
 
 import java.util.Map;
 import java.util.TreeMap;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.StreamingOutput;
 
 public class EdgeSet {
-  public static String getAsJSON(Map<String, String> leafToCluster, InputStream is) throws NumberFormatException, IOException {
+  public static StreamingOutput getAsJSONStream(Map<String, String> leafToCluster, InputStream is) throws NumberFormatException, IOException {
     BufferedReader br = new BufferedReader(new InputStreamReader(is));
       EdgeCounter counter = new EdgeCounter();
       String line;
@@ -27,7 +34,7 @@ public class EdgeSet {
       }
       is.close();
       br.close();
-      return counter.toString();
+      return counter.stream();
   }
   
   public static class EdgeCounter {
@@ -35,7 +42,7 @@ public class EdgeSet {
     public EdgeCounter() {
       edges = new TreeMap<>();
     }
-    public int getEdgeCount() {
+	public int getEdgeCount() {
       return edges.size();
     }
     public void add(String one, String two) {
@@ -44,17 +51,29 @@ public class EdgeSet {
       if(current == null) current = 0;
       edges.put(e, current + 1);
     }
-    @Override
-    public String toString() {
-      boolean first = true;
-      String result = "[";
-      for(Edge e : edges.keySet()) {
-        if(first) first = false;
-        else result += ",";
-        result += "\n{ "+ e.toString() + ", \"value\":\"" + edges.get(e).toString() + "\" }";
-      }
-      return result + "\n]";
-    }
+    public StreamingOutput stream() {
+    	StreamingOutput stream = new StreamingOutput() {
+            @Override
+            public void write(OutputStream os) throws IOException, WebApplicationException {            	
+                Writer writer = new BufferedWriter(new OutputStreamWriter(os));
+                writer.write("[");
+                boolean first = true;
+                for(Edge e : edges.keySet()) {
+                  if(first) {
+                	  first = false;
+                	  writer.write("{"+ e.toString() + ",\"value\":\"" + edges.get(e).toString() + "\"}");
+                  }
+                  else {
+                	  writer.write(",{"+ e.toString() + ",\"value\":\"" + edges.get(e).toString() + "\"}");
+                  }
+                }
+                writer.write("]");
+                writer.flush();
+                writer.close();
+            }
+        }; 
+        return stream;
+	}
     public static class Edge implements Comparable<Edge> {
       String src, dest;
       public Edge(String one, String two) {

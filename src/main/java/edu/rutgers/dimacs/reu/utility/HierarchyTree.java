@@ -14,7 +14,7 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 
 public class HierarchyTree {
-	private TreeNode<String> root = null;
+	public TreeNode<String> root = null;
 	private TreeMap<String, TreeNode<String>> lookup = null;
 
 	public HierarchyTree(String file_path) {
@@ -39,6 +39,10 @@ public class HierarchyTree {
 			return null;
 		} else
 			return node.getLeafObjects();
+	}
+	
+	public TreeNode<String> getNode(String id) {
+		return lookup.get(id);
 	}
 
 	public boolean isEmpty() {

@@ -19,7 +19,7 @@ public class Graph {
 	public GraphNode addNode(String id) {
 		GraphNode newNode = new GraphNode(id);
 		idToNode.put(id, newNode);
-		return newNode; // changed
+		return newNode;
 	}
 	
 	public Collection<GraphNode> getNodeSet() {
@@ -30,22 +30,18 @@ public class Graph {
 		return edges.values();
 	}
 	
-	// added
 	public GraphNode getNode(String id) {
 		return idToNode.get(id);
 	}
 	
-	// added
 	public Edge getEdge(String id) {
 		return edges.get(id);
 	}
 	
-	// added
 	public int getNodeCount() {
 		return idToNode.keySet().size();
 	}
 	
-	//added
 	public int getEdgeCount() {
 		return edges.keySet().size();
 	}
@@ -71,7 +67,6 @@ public class Graph {
 		addEdge(srcNode, destNode);
 	}
 
-	// changed
 	public Edge addEdge(GraphNode src, GraphNode dest) {
 		if (src == null)
 			throw new RuntimeException("Source node is null, fix it");
@@ -83,7 +78,7 @@ public class Graph {
 		} else {
 			src.neighbors.add(dest);
 			dest.neighbors.add(src);
-			edges.put("{" + src.id + "," + dest.id + "}", new UndirectedEdge(src, dest));
+			edges.put("{" + src.id + "," + dest.id + "}", new UndirectedEdge(src, dest)); //unsafe, could have 2 undirected edges between pair
 		}
 		
 		return edges.get("{" + src.id + "," + dest.id + "}");
@@ -101,7 +96,6 @@ public class Graph {
 		removeEdge(idToNode.get(src), idToNode.get(dest));
 	}
 	
-	// added
 	public void removeNode(GraphNode n) {
 		for (GraphNode nbr : n.neighbors) {
 			removeEdge(n,nbr);

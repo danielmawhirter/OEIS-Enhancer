@@ -40,24 +40,25 @@ import static javax.ejb.LockType.READ;
 @Lock(READ)
 public class PathService {
 	LoadingCache<Integer, Collection<Integer>> cache;
-	private final static Logger LOGGER = Logger.getLogger(PathService.class
+	private static final Logger LOGGER = Logger.getLogger(PathService.class
 			.getName());
 
 	public PathService() throws SQLException, NamingException {
 		MySQLHandler.setup();
-		cache = CacheBuilder.newBuilder().maximumSize(258545)
-				.expireAfterAccess(5, TimeUnit.MINUTES)
+		cache = CacheBuilder.newBuilder().maximumSize(300000)
+				.expireAfterAccess(60, TimeUnit.MINUTES)
 				.build(new CacheLoader<Integer, Collection<Integer>>() {
 					@Override
 					public Collection<Integer> load(Integer node) throws SQLException {
 						Collection<Integer> neighbors_ints = MySQLHandler
-								.getCrossrefsLeaving(node, CrossrefTypes.NORMALONLY); //expensive BFS
+								.getCrossrefsLeaving(node, CrossrefTypes.NORMALONLY);
 						Collection<Integer> entering_ints = MySQLHandler
 								.getCrossrefsInto(node, CrossrefTypes.NORMALONLY);
 						neighbors_ints.addAll(entering_ints);
 						return neighbors_ints;
 					}
 				});
+		cache.putAll(MySQLHandler.getAllCrossrefs()); //loads the entire graph, takes 2.5s
 		System.out.println("Path Service Instanciated");
 	}
 
@@ -95,14 +96,6 @@ public class PathService {
 			for (ArrayList<Integer> path : paths) {
 				paths_set.addAll(path);
 			}
-
-			//log
-			LOGGER.info("combining paths took "
-				+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
-				+ "ms");
-			timeStart = System.nanoTime();
-			
-			//run
 			String result = finalJSON(graph, paths_set);
 
 			//log
@@ -116,6 +109,9 @@ public class PathService {
 		} catch (ExecutionException e) {
 			e.printStackTrace();
 			return "{\"error\": \"cache error\"}";
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return "{\"error\": \"error getting words for labeling\"}";
 		}
 	}
 
@@ -162,7 +158,7 @@ public class PathService {
 		return result;
 	}
 
-	public String finalJSON(Graph graph, HashSet<Integer> path_ints) {
+	public String finalJSON(Graph graph, HashSet<Integer> path_ints) throws SQLException {
 		String result = "{\n\"nodes\":[\n";
 		result = result + nodesJSON(graph, path_ints);
 		result = result + "], \"links\":[\n";
@@ -277,7 +273,7 @@ public class PathService {
 		return all_ints;
 	}
 
-	public String nodesJSON(Graph graph, HashSet<Integer> path_ints) {
+	public String nodesJSON(Graph graph, HashSet<Integer> path_ints) throws SQLException {
 
 		String result = "";
 		
@@ -286,27 +282,29 @@ public class PathService {
 		}
 
 		TreeSet<GraphNode> nodes = new TreeSet<>(graph.getNodeSet());
+		LinkedList<Integer> wordNodes = new LinkedList<>();
+		for(GraphNode gn : nodes) {
+			wordNodes.add(Integer.parseInt(gn.id));
+		}
+		Map<Integer, Map<String, Integer>> allWords = MySQLHandler.getWordMultiSet(wordNodes);
+
 
 		for (GraphNode gn : nodes) {
 			int gn_int = Integer.parseInt(gn.toString());
 			ArrayList<String> selectedWords = new ArrayList<String>();
-			try {
-				Map<String, Integer> allWords = MySQLHandler.getWordMultiSet(gn_int);
-				allWords = sortByComparator(allWords);
+			Map<String, Integer> nodeWords = allWords.get(gn_int);
+			nodeWords = sortByComparator(nodeWords);
 
-				int totalFreq = 0;
-				for (String word : allWords.keySet()) {
-					totalFreq += allWords.get(word);
-				}
-				for (String word : allWords.keySet()) {
-					int wordFreq = allWords.get(word);
-					if ((double) wordFreq / totalFreq > 0.25) {
-						selectedWords.add(word);
-					}
-				}
-			} catch (SQLException e) {
-				e.printStackTrace();
-			} //simultaneous would be good
+			int totalFreq = 0;
+			for (String word : nodeWords.keySet()) {
+				totalFreq += nodeWords.get(word);
+			}
+			for (String word : nodeWords.keySet()) {
+				int wordFreq = nodeWords.get(word);
+				if ((double) wordFreq / totalFreq > 0.25) {
+					selectedWords.add(word);
+				} //after sorting, check all n elements for this property -_-
+			}
 			
 			
 			String label = "";

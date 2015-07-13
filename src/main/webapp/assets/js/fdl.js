@@ -1,5 +1,12 @@
 // "main"
-
+/*d3.json("expansionSchedule/78/40", function(error, json) {
+ if (error)
+ throw error;
+ console.log(json);
+ for(i = 0; i < json.length; i++) {
+ console.log(json[i]);
+ }
+ });*/
 // assign menu buttons to actions
 document.getElementById("mainViewButton").onclick = hierarchyLayout;
 document.getElementById("relationViewButton").onclick = pathLayout;
@@ -24,6 +31,8 @@ function clearSVG() {
 	links = null;
 	document.getElementById("incFontSize").onclick = null;
 	document.getElementById("decFontSize").onclick = null;
+	document.getElementById("incNodeSize").onclick = null;
+	document.getElementById("decNodeSize").onclick = null;
 }
 
 function resumeForce() {
@@ -72,7 +81,7 @@ function hierarchyLayout() {
 			.selectAll(".node");
 
 	d3.select(window).on("resize", resize);
-	
+
 	document.getElementById("incFontSize").onclick = function() {
 		fontSize *= sizeMultiplier;
 		refreshAfterZoom();
@@ -198,7 +207,7 @@ function hierarchyLayout() {
 				+ ")scale(" + currentZoomLevel + ")");
 		refreshAfterZoom();
 	}
-	
+
 	function refreshAfterZoom() {
 		node_elements.select("circle").attr("r", size).attr("stroke-width",
 				1.0 / currentZoomLevel + "px");
@@ -255,18 +264,19 @@ function hierarchyLayout() {
 
 	function size(d) {
 		if (d.size)
-			return Math.max(nodeSize * Math.sqrt(d.size) / 20, nodeSize) / currentZoomLevel;
+			return Math.max(nodeSize * Math.sqrt(d.size) / 20, nodeSize)
+					/ currentZoomLevel;
 		else
 			return nodeSize / currentZoomLevel;
 	}
 
-	// Toggle children on click.
+	// show children on click
 	function click(d) {
 		if (d3.event.defaultPrevented)
 			return; // ignore drag
 		expand(d);
 	}
-	
+
 	function rightClick(d) {
 		d3.event.preventDefault();
 		d.fixed = false;
@@ -315,21 +325,57 @@ function hierarchyLayout() {
 					d.color = n.color;
 				interests.push(d.name);
 			});
-			var queryString = "incidentEdges/" + selectedGraph + "/";
-			var first = true;
-			for (i = 0; i < interests.length; i++) {
-				if (first) {
-					first = false;
-					queryString = queryString.concat(interests[i]);
+			if (interests.length <= 50) {
+				var queryString = "incidentEdges/" + selectedGraph + "/";
+				var first = true;
+				for (i = 0; i < interests.length; i++) {
+					if (first) {
+						first = false;
+						queryString = queryString.concat(interests[i]);
+					} else {
+						queryString = queryString.concat("-" + interests[i]);
+					}
 				}
-				else {
-					queryString = queryString.concat("-" + interests[i]);
+				console.log(queryString);
+				d3.json(queryString, updateLinks);
+				update();
+			} else {
+				var token = null;
+				function intermediate(error, json) {
+					if (error) {
+						alert("Server unresponsive");
+						return;
+					}
+					if (json.error) {
+						console.log("error", json);
+						return;
+					}
+					if (null == token)
+						token = json.token;
+					else if (token != json.token)
+						console.log("error", token, json.token);
+					if (interests.length > 0) {
+						var queryString = "incidentEdges/addInput/" + token
+								+ "/";
+						var first = true;
+						for (i = 0; i < 50 && interests.length > 0; i++) {
+							var element = interests.shift();
+							if (first) {
+								first = false;
+								queryString = queryString.concat(element);
+							} else {
+								queryString = queryString.concat("-" + element);
+							}
+						}
+						console.log(queryString);
+						d3.json(queryString, intermediate);
+					} else {
+						d3.json("incidentEdges/withToken/" + selectedGraph + "/" + token, updateLinks);
+					}
 				}
+				d3.json("incidentEdges/beginInput", intermediate);
+				update();
 			}
-			console.log(queryString);
-			//console.log("node count: " + interests.length);
-			d3.json(queryString, updateLinks);
-			update();
 		} else {
 			if (isNaN(n.name))
 				alert("Leaf id: " + n.name);
@@ -393,7 +439,7 @@ function pathLayout() {
 			.selectAll(".node");
 
 	d3.select(window).on("resize", resize);
-	
+
 	document.getElementById("incFontSize").onclick = function() {
 		fontSize *= sizeMultiplier;
 		refreshAfterZoom();
@@ -421,7 +467,7 @@ function pathLayout() {
 		}).attr("stroke-width", strokeWidth).style("stroke", stroke);
 		link_elements.exit().remove();
 		link_elements.enter().insert("line", ".node").attr("class", "link")
-		.attr("stroke-width", strokeWidth).style("stroke", stroke);
+				.attr("stroke-width", strokeWidth).style("stroke", stroke);
 
 		node_elements = node_elements.data(nodes, function(d) {
 			return d.name;
@@ -436,7 +482,7 @@ function pathLayout() {
 		nodeEnter.append("text")
 		// .attr("dx", ".35em")
 		.text(filteredText).attr("font-size", 1.0 / currentZoomLevel + "em")
-		.attr("text-anchor", "left");
+				.attr("text-anchor", "left");
 
 		node_elements.select("circle").style("fill", fillColor);
 		additionMade = false;
@@ -462,34 +508,40 @@ function pathLayout() {
 	}
 
 	function strokeWidth(d) {
-		if(d.source && d.source.path && d.target && d.target.path) return 8.0 / currentZoomLevel + "px";
-		else return 1.0 / currentZoomLevel + "px";
+		if (d.source && d.source.path && d.target && d.target.path)
+			return 8.0 / currentZoomLevel + "px";
+		else
+			return 1.0 / currentZoomLevel + "px";
 	}
-	
+
 	function stroke(d) {
-		if(d.source && d.source.path && d.target && d.target.path) return "black";
-		else return "#91B5FF";
+		if (d.source && d.source.path && d.target && d.target.path)
+			return "black";
+		else
+			return "#91B5FF";
 	}
-	
+
 	function fillColor(d) {
-		if(d.path) {
-			if(primaryNodes.indexOf(d.name.split("-")[0]) != -1) return "red";
-			else return "blue";
-		}
-		else return "gray";
+		if (d.path) {
+			if (primaryNodes.indexOf(d.name.split("-")[0]) != -1)
+				return "red";
+			else
+				return "blue";
+		} else
+			return "gray";
 	}
-	
+
 	function allText(d) {
 		return d.name;
 	}
-	
+
 	function filteredText(d) {
-		if(d.path || d.name.indexOf("-") != -1) {
+		if (d.path || d.name.indexOf("-") != -1) {
 			return d.name;
 		}
 		return "";
 	}
-	
+
 	function resize() {
 		width = window.innerWidth;
 		height = window.innerHeight;
@@ -504,11 +556,11 @@ function pathLayout() {
 				+ ")scale(" + currentZoomLevel + ")");
 		refreshAfterZoom();
 	}
-	
+
 	function refreshAfterZoom() {
 		node_elements.select("circle").attr("r", size).attr("stroke-width",
 				1.0 / currentZoomLevel + "px");
-		if(currentZoomLevel > 6) { //all labels
+		if (currentZoomLevel > 6) { // all labels
 			node_elements.select("text").text(allText).attr("font-size",
 					fontSize / currentZoomLevel + "em");
 		} else {
@@ -516,16 +568,17 @@ function pathLayout() {
 					fontSize / currentZoomLevel + "em");
 		}
 		link_elements.attr("stroke-width", strokeWidth).style("stroke", stroke);
-		//console.log(currentZoomLevel * 5.0);
+		// console.log(currentZoomLevel * 5.0);
 	}
-	
+
 	function rightClick(d) {
 		d3.event.preventDefault();
 		d.fixed = false;
 	}
 
 	function click(d) {
-		if (d3.event.defaultPrevented) return;
+		if (d3.event.defaultPrevented)
+			return;
 		var num = d.name.split("-")[0];
 		if (isNaN(num))
 			alert("Node id: " + num);
@@ -601,80 +654,81 @@ function pathLayout() {
 // Add To Path View
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 function addToPathView() {
-	if (enableAddition) {
-		if (additionPending) {
-			alert("hold on, waiting for server");
-			return;
-		}
-		if (isNaN(textField.value)) {
-			alert(textField.value + " is not a sequence number");
-			return;
-		}
-		if(primaryNodes.indexOf(textField.value) != -1) return;
-		additionPending = true;
-		var addedSequence = textField.value;
-		//console.log(nodes);
-		queryString = "pathAddition/" + addedSequence + "/";
-		if (nodes.length == 0)
-			queryString = queryString.concat("NONE");
-		else {
-			first = true;
-			for (i = 0; i < nodes.length; i++) {
-				if(nodes[i].path) {
-					if (first)
-						first = false;
-					else {
-						queryString = queryString.concat("-");
-					}
-					queryString = queryString.concat(nodes[i].name.split("-")[0]);
-					//console.log(nodes[i].name);
-				}
-			}
-		}
-		console.log(queryString);
-		d3.json(queryString, function(error, json) {
-			if (error) {
-				alert("Sequence " + textField.value + " not found");
-				console.log(error);
-				return;
-			}
-			force.stop();
-			if (json.nodes) {
-				var newNodes = [];
-				while (nodes.length > 0 && json.nodes.length > 0) {
-					var name_node = nodes[0].name.split("-")[0];
-					var name_json = json.nodes[0].name.split("-")[0];
-					
-					if (name_node == name_json) {
-						var current = nodes.shift();
-						var other = json.nodes.shift();
-						current.path = current.path || other.path;
-						newNodes.push(current);
-					} else if (name_node < name_json) {
-						newNodes.push(nodes.shift());
-					} else {
-						newNodes.push(json.nodes.shift());
-					}
-				}
-				if (nodes.length == 0) {
-					newNodes = newNodes.concat(json.nodes);
-				}
-				if (json.nodes.length == 0) {
-					newNodes = newNodes.concat(nodes);
-				}
-				nodes = newNodes;
-			}
-			if (json.links) {
-				mergeInLinks(json.links);
-			}
-			primaryNodes.push(addedSequence);
-			additionMade = true;
-			additionPending = false;
-			force.resume();
-		});
-	} else {
-		alert("This view is inactive");
+	if (!enableAddition) {
+		pathLayout();
 	}
+	if (additionPending) {
+		alert("hold on, waiting for server");
+		return;
+	}
+	if (isNaN(textField.value)) {
+		alert(textField.value + " is not a sequence number");
+		return;
+	}
+	if (primaryNodes.indexOf(textField.value) != -1) {
+		alert("already added");
+		return;
+	}
+	additionPending = true;
+	var addedSequence = textField.value;
+	// console.log(nodes);
+	queryString = "pathAddition/" + addedSequence + "/";
+	if (nodes.length == 0)
+		queryString = queryString.concat("NONE");
+	else {
+		first = true;
+		for (i = 0; i < nodes.length; i++) {
+			if (nodes[i].path) {
+				if (first) {
+					first = false;
+				} else {
+					queryString = queryString.concat("-");
+				}
+				queryString = queryString.concat(nodes[i].name.split("-")[0]);
+			}
+		}
+	}
+	console.log(queryString);
+	d3.json(queryString, function(error, json) {
+		if (error) {
+			alert("Sequence " + textField.value + " not found");
+			console.log(error);
+			return;
+		}
+		force.stop();
+		if (json.nodes) {
+			var newNodes = [];
+			while (nodes.length > 0 && json.nodes.length > 0) {
+				var name_node = nodes[0].name.split("-")[0];
+				var name_json = json.nodes[0].name.split("-")[0];
+
+				if (name_node == name_json) {
+					var current = nodes.shift();
+					var other = json.nodes.shift();
+					current.path = current.path || other.path;
+					newNodes.push(current);
+				} else if (name_node < name_json) {
+					newNodes.push(nodes.shift());
+				} else {
+					newNodes.push(json.nodes.shift());
+				}
+			}
+			if (nodes.length == 0) {
+				newNodes = newNodes.concat(json.nodes);
+			}
+			if (json.nodes.length == 0) {
+				newNodes = newNodes.concat(nodes);
+			}
+			nodes = newNodes;
+		}
+		if (json.links) {
+			mergeInLinks(json.links);
+		}
+		primaryNodes.push(addedSequence);
+		additionMade = true;
+		additionPending = false;
+		force.resume();
+	});
 	// add to global nodes/links lists, set boolean flag, call force.resume
 }
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

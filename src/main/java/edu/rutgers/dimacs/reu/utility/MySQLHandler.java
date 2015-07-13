@@ -4,11 +4,14 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
@@ -18,10 +21,10 @@ import javax.sql.DataSource;
 public final class MySQLHandler {
 	private static Connection con = null;
 	private static Statement st = null;
-
+	
 	public enum CrossrefTypes {
-		ALL(""), CONTEXTANDNORMAL(" AND Adjacent=0"), NORMALONLY(
-				" AND Adjacent=0 AND In_Context=0");
+		ALL(""), CONTEXTANDNORMAL("Adjacent=0"), NORMALONLY(
+				"Adjacent=0 AND In_Context=0");
 		private final String stmt;
 
 		private CrossrefTypes(String s) {
@@ -29,7 +32,11 @@ public final class MySQLHandler {
 		}
 
 		public String getStmt() {
-			return stmt;
+			return stmt.length() > 0 ? " AND " + stmt : stmt;
+		}
+		
+		public String getWholeStmt() {
+			return stmt.length() > 0 ? " WHERE " + stmt : stmt;
 		}
 	}
 
@@ -56,66 +63,51 @@ public final class MySQLHandler {
 		return true;
 	}
 
-	public static boolean close() {
-		try {
-			st.close();
-			st = null;
-			con.close();
-			con = null;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return false;
-		}
+	public static boolean close() throws SQLException {
+		st.close();
+		st = null;
+		con.close();
+		con = null;
 		return true;
 	}
 
 	public static Map<String, Integer> getWordMultiSet(int sequenceId,
 			WordSources sources) throws SQLException {
-		Map<String, Integer> wordMultiSet = new TreeMap<>();
-		ResultSet rs;
+		Map<String, Integer> wordMultiSet = new HashMap<>();
+		String query = "";
 		if (sources.comments) {
-			rs = st.executeQuery("SELECT Word,Frequency FROM Com_Words WHERE SID="
-					+ Integer.toString(sequenceId) + ";");
-			while (rs.next()) {
-				String word = rs.getString(1);
-				if (word.equals("NONE"))
-					continue;
-				Integer count = wordMultiSet.get(word);
-				if (count == null) {
-					wordMultiSet.put(word, rs.getInt(2));
-				} else {
-					wordMultiSet.put(word, count + rs.getInt(2));
-				}
-			}
+			query += "SELECT Word,Frequency FROM Com_Words WHERE SID="
+					+ Integer.toString(sequenceId);
 		}
 		if (sources.links) {
-			rs = st.executeQuery("SELECT Word,Frequency FROM Link_Words WHERE SID="
-					+ Integer.toString(sequenceId) + ";");
-			while (rs.next()) {
-				String word = rs.getString(1);
-				if (word.equals("NONE"))
-					continue;
-				Integer count = wordMultiSet.get(word);
-				if (count == null) {
-					wordMultiSet.put(word, rs.getInt(2));
-				} else {
-					wordMultiSet.put(word, count + rs.getInt(2));
-				}
+			if (sources.comments) {
+				query += " UNION ALL SELECT Word,Frequency FROM Link_Words WHERE SID="
+						+ Integer.toString(sequenceId);
+			} else {
+				query += "SELECT Word,Frequency FROM Link_Words WHERE SID="
+						+ Integer.toString(sequenceId);
 			}
 		}
 		if (sources.references) {
-			rs = st.executeQuery("SELECT Word,Frequency FROM Ref_Words WHERE SID="
-					+ Integer.toString(sequenceId) + ";");
-			while (rs.next()) {
-				String word = rs.getString(1);
-				if (word.equals("NONE"))
-					continue;
-				Integer count = wordMultiSet.get(word);
-				if (count == null) {
-					wordMultiSet.put(word, rs.getInt(2));
-				} else {
-					wordMultiSet.put(word, count + rs.getInt(2));
-				}
+			if (sources.comments || sources.links) {
+				query += " UNION ALL SELECT Word,Frequency FROM Ref_Words WHERE SID="
+						+ Integer.toString(sequenceId);
+			} else {
+				query += "SELECT Word,Frequency FROM Ref_Words WHERE SID="
+						+ Integer.toString(sequenceId);
+			}
+		}
+		query += ";";
+		ResultSet rs = st.executeQuery(query);
+		while (rs.next()) {
+			String word = rs.getString(1);
+			if (word.equals("NONE"))
+				continue;
+			Integer count = wordMultiSet.get(word);
+			if (count == null) {
+				wordMultiSet.put(word, rs.getInt(2));
+			} else {
+				wordMultiSet.put(word, count + rs.getInt(2));
 			}
 		}
 		return wordMultiSet;
@@ -124,6 +116,65 @@ public final class MySQLHandler {
 	public static Map<String, Integer> getWordMultiSet(int sequenceId)
 			throws SQLException {
 		return getWordMultiSet(sequenceId, WordSources.ALL);
+	}
+
+	public static Map<Integer, Map<String, Integer>> getWordMultiSet(
+			Iterable<Integer> group, WordSources sources) throws SQLException {
+		Map<Integer, Map<String, Integer>> result = new TreeMap<>();
+		String in_str = "(";
+		for (Integer i : group) {
+			result.put(i, new HashMap<String, Integer>());
+			if (in_str.length() > 1)
+				in_str += ", " + i.toString();
+			else
+				in_str += i.toString();
+		}
+		in_str += ")";
+
+		String query = "";
+		if (sources.comments) {
+			query += "SELECT SID,Word,Frequency FROM Com_Words WHERE SID IN "
+					+ in_str;
+		}
+		if (sources.links) {
+			if (sources.comments) {
+				query += " UNION ALL SELECT SID,Word,Frequency FROM Link_Words WHERE SID IN "
+						+ in_str;
+			} else {
+				query += "SELECT SID,Word,Frequency FROM Link_Words WHERE SID="
+						+ in_str;
+			}
+		}
+		if (sources.references) {
+			if (sources.comments || sources.links) {
+				query += " UNION ALL SELECT SID,Word,Frequency FROM Ref_Words WHERE SID IN "
+						+ in_str;
+			} else {
+				query += "SELECT SID,Word,Frequency FROM Ref_Words WHERE SID="
+						+ in_str;
+			}
+		}
+		query += ";";
+		ResultSet rs = st.executeQuery(query);
+		while (rs.next()) {
+			int SID = rs.getInt(1);
+			String word = rs.getString(2);
+			int Frequency = rs.getInt(3);
+			Map<String, Integer> current = result.get(SID);
+			Integer count = current.get(word);
+			if (count == null) {
+				current.put(word, Frequency);
+			} else {
+				current.put(word, count + Frequency);
+			}
+		}
+
+		return result;
+	}
+
+	public static Map<Integer, Map<String, Integer>> getWordMultiSet(
+			Iterable<Integer> sequenceIds) throws SQLException {
+		return getWordMultiSet(sequenceIds, WordSources.ALL);
 	}
 
 	public static Set<Integer> getCrossrefsLeaving(int sequenceId,
@@ -145,9 +196,9 @@ public final class MySQLHandler {
 		return getCrossrefsLeaving(sequenceId, CrossrefTypes.ALL);
 	}
 
-	public static Map<Integer, LinkedList<Integer>> getCrossrefsLeaving(
+	public static Map<Integer, Collection<Integer>> getCrossrefsLeaving(
 			Iterable<Integer> group, CrossrefTypes types) throws SQLException {
-		Map<Integer, LinkedList<Integer>> out = new TreeMap<Integer, LinkedList<Integer>>();
+		Map<Integer, Collection<Integer>> out = new TreeMap<Integer, Collection<Integer>>();
 		String in_str = "(";
 		for (Integer i : group) {
 			if (in_str.length() > 1)
@@ -161,7 +212,7 @@ public final class MySQLHandler {
 		rs = st.executeQuery("SELECT * FROM Cross_Refs WHERE ourSeq_Ref IN"
 				+ in_str + types.getStmt() + ";");
 		while (rs.next()) {
-			LinkedList<Integer> dests = out.get(rs.getInt(1));
+			Collection<Integer> dests = out.get(rs.getInt(1));
 			if (dests != null) {
 				dests.add(rs.getInt(2));
 			} else {
@@ -175,14 +226,14 @@ public final class MySQLHandler {
 		return out;
 	}
 
-	public static Map<Integer, LinkedList<Integer>> getCrossrefsLeaving(
+	public static Map<Integer, Collection<Integer>> getCrossrefsLeaving(
 			Iterable<Integer> group) throws SQLException {
 		return getCrossrefsLeaving(group, CrossrefTypes.ALL);
 	}
 
 	public static Set<Integer> getCrossrefsInto(int sequenceId,
 			CrossrefTypes types) throws SQLException {
-		Set<Integer> out = new HashSet<>();
+		Set<Integer> out = new TreeSet<>();
 		ResultSet rs;
 
 		rs = st.executeQuery("SELECT ourSeq_Ref FROM Cross_Refs WHERE otherSeq_Ref="
@@ -232,6 +283,32 @@ public final class MySQLHandler {
 	public static Map<Integer, LinkedList<Integer>> getCrossrefsInto(
 			Iterable<Integer> group) throws SQLException {
 		return getCrossrefsInto(group, CrossrefTypes.ALL);
+	}
+	
+	public static Map<Integer, Collection<Integer>> getAllCrossrefs(CrossrefTypes types) throws SQLException {
+		Map<Integer, Collection<Integer>> result = new TreeMap<>();
+		ResultSet rs = st.executeQuery("SELECT ourSeq_Ref,otherSeq_Ref FROM Cross_Refs" + types.getWholeStmt());
+		while(rs.next()) {
+			Integer src = rs.getInt(1);
+			Integer dest = rs.getInt(2);
+			Collection<Integer> srcAdj = result.get(src);
+			if(null == srcAdj) {
+				srcAdj = new TreeSet<>();
+				result.put(src, srcAdj);
+			}
+			Collection<Integer> destAdj = result.get(dest);
+			if(null == destAdj) {
+				destAdj = new TreeSet<>();
+				result.put(dest, destAdj);
+			}
+			srcAdj.add(dest);
+			destAdj.add(src);
+		}
+		return result;
+	}
+	
+	public static Map<Integer, Collection<Integer>> getAllCrossrefs() throws SQLException {
+		return getAllCrossrefs(CrossrefTypes.NORMALONLY);
 	}
 
 	public static String getDescription(int id) throws SQLException {
