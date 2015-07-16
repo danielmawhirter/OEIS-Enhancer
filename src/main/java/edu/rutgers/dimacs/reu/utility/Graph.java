@@ -2,8 +2,10 @@ package edu.rutgers.dimacs.reu.utility;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 
 public class Graph {
+	static int total = 0;
 	private String id;
 	public HashMap<String, GraphNode> idToNode;
 	public HashMap<String, Edge> edges;
@@ -34,10 +36,6 @@ public class Graph {
 		return idToNode.get(id);
 	}
 	
-	public Edge getEdge(String id) {
-		return edges.get(id);
-	}
-	
 	public int getNodeCount() {
 		return idToNode.keySet().size();
 	}
@@ -49,22 +47,27 @@ public class Graph {
 	public String getId() {
 		return id;
 	}
+	
+	public boolean contains(GraphNode n) {
+		return idToNode.values().contains(n);
+	}
 
-	// adds edge between string-identified nodes, creating nodes if necessary
-	public void addEdge(String src, String dest) {
+	public Edge addEdge(String src, String dest) {
 		if (src == null || dest == null)
 			throw new RuntimeException("That's a null string");
 		GraphNode srcNode = idToNode.get(src);
 		if (srcNode == null) {
 			srcNode = new GraphNode(src);
 			idToNode.put(src, srcNode);
+			total++;
 		}
 		GraphNode destNode = idToNode.get(dest);
 		if (destNode == null) {
 			destNode = new GraphNode(dest);
 			idToNode.put(dest, destNode);
+			total++;
 		}
-		addEdge(srcNode, destNode);
+		return addEdge(srcNode, destNode);
 	}
 
 	public Edge addEdge(GraphNode src, GraphNode dest) {
@@ -72,24 +75,43 @@ public class Graph {
 			throw new RuntimeException("Source node is null, fix it");
 		if (dest == null)
 			throw new RuntimeException("Destination node is null, fix it");
+		Edge adding = null;
 		if (directed) {
-			src.neighbors.add(dest);
-			edges.put("{" + src.id + "," + dest.id + "}", new DirectedEdge(src, dest));
+			src.addNeighbor(dest);
+			adding = new DirectedEdge(src, dest);
 		} else {
-			src.neighbors.add(dest);
-			dest.neighbors.add(src);
-			edges.put("{" + src.id + "," + dest.id + "}", new UndirectedEdge(src, dest)); //unsafe, could have 2 undirected edges between pair
+			src.addNeighbor(dest);
+			dest.addNeighbor(src);
+			adding = new UndirectedEdge(src, dest);
 		}
-		
-		return edges.get("{" + src.id + "," + dest.id + "}");
+		if(edges.get(adding.getId()) == null) {
+			edges.put(adding.getId(), adding);
+			return adding;
+		} else {
+			return edges.get(adding.getId());
+		}
 	}
 
 	public boolean hasEdgeBetween(GraphNode src, GraphNode dest) {
-		return src != null && dest != null && src.neighbors.contains(dest);
+		return src != null && dest != null && src.neighbors(dest);
 	}
 
 	public boolean hasEdgeBetween(String src, String dest) {
 		return hasEdgeBetween(idToNode.get(src), idToNode.get(dest));
+	}
+	
+	public Edge getEdge(GraphNode src, GraphNode dest) {
+		Edge getting = null;
+		if (directed) {
+			getting = new DirectedEdge(src, dest);
+		} else {
+			getting = new UndirectedEdge(src, dest);
+		}
+		return edges.get(getting.getId());
+	}
+	
+	public Edge getEdge(String src, String dest) {
+		return getEdge(idToNode.get(src), idToNode.get(dest));
 	}
 	
 	public void removeEdge(String src, String dest) {
@@ -97,10 +119,12 @@ public class Graph {
 	}
 	
 	public void removeNode(GraphNode n) {
-		for (GraphNode nbr : n.neighbors) {
-			removeEdge(n,nbr);
+		LinkedList<GraphNode> removal = new LinkedList<>(n.getNeighbors());
+		while(removal.size() > 0) {
+			removeEdge(n, removal.pop());
 		}
 		idToNode.remove(n.id);
+		n.remove();
 	}
 	
 	public void removeEdge(GraphNode src, GraphNode dest) {
@@ -108,15 +132,17 @@ public class Graph {
 			throw new RuntimeException("Source node is null, fix it");
 		if (dest == null)
 			throw new RuntimeException("Destination node is null, fix it");
-		if(directed) {
-			edges.remove(new DirectedEdge(src, dest));
-			src.neighbors.remove(dest);
+		Edge removing = null;
+		if (directed) {
+			src.removeNeighbor(dest);
+			removing = new DirectedEdge(src, dest);
+		} else {
+			src.removeNeighbor(dest);
+			dest.removeNeighbor(src);
+			removing = new UndirectedEdge(src, dest);
 		}
-		else {
-			edges.remove(new UndirectedEdge(src, dest));
-			src.neighbors.remove(dest);
-			dest.neighbors.remove(src);
-		}
+		if(edges.get(removing.getId()) != null) 
+			edges.remove(removing.getId());
 	}
 
 }

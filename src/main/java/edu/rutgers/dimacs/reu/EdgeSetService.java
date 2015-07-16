@@ -7,7 +7,6 @@ import javax.ejb.Singleton;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
@@ -62,8 +61,7 @@ public class EdgeSetService {
 				.expireAfterAccess(20, TimeUnit.SECONDS)
 				.build(new CacheLoader<Integer, LinkedList<String>>() {
 					@Override
-					public LinkedList<String> load(Integer arg0)
-							throws Exception {
+					public LinkedList<String> load(Integer arg0) {
 						return new LinkedList<>();
 					}
 				});
@@ -189,8 +187,7 @@ public class EdgeSetService {
 		}
 		StreamingOutput stream = new StreamingOutput() {
 			@Override
-			public void write(OutputStream os) throws IOException,
-					WebApplicationException {
+			public void write(OutputStream os) throws IOException {
 				Writer writer = new BufferedWriter(new OutputStreamWriter(os));
 				writer.write("[");
 				boolean first = true;

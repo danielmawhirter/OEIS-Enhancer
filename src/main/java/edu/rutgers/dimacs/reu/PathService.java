@@ -3,13 +3,9 @@ package edu.rutgers.dimacs.reu;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.LinkedList;
 import java.util.Collections;
@@ -21,6 +17,7 @@ import java.util.logging.Logger;
 import javax.ejb.Lock;
 import javax.ejb.Singleton;
 import javax.naming.NamingException;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -63,10 +60,10 @@ public class PathService {
 	}
 
 	@GET
-	@Path("{newNode}/{pathTo}")
+	@Path("{newNode}/{pathTo}/{includeNeighborhoods}")
 	@Produces(MediaType.APPLICATION_JSON)
 	public String getAddition(@PathParam("newNode") String newNode,
-			@PathParam("pathTo") String existing) {
+			@PathParam("pathTo") String existing, @PathParam("includeNeighborhoods") @DefaultValue("false") boolean includeNeighborhoods) {
 		try {
 			//log
 			LOGGER.info("query: " + newNode + "/" + existing);
@@ -83,7 +80,7 @@ public class PathService {
 			timeStart = System.nanoTime();
 			
 			//run
-			Graph graph = buildGraph(neighborhoods(paths));
+			Graph graph = buildGraph(neighborhoods(paths, includeNeighborhoods));
 
 			//log
 			LOGGER.info("building graph took "
@@ -189,10 +186,14 @@ public class PathService {
 		}
 
 		// make sure no dests are source
+		LinkedList<Integer> toRemove = new LinkedList<>();
 		for (Integer n : dest_ints) {
 			if (n.equals(source_int)) {
-				dest_ints.remove(n);
+				toRemove.add(n);
 			}
+		}
+		for(Integer n : toRemove) {
+			dest_ints.remove(n);
 		}
 
 		if (dest_ints.isEmpty()) {
@@ -219,7 +220,6 @@ public class PathService {
 
 			Integer curr_int = queue.remove();
 			// System.out.println("curr_int: " + curr_int);
-
 
 			for (int n : cache.get(curr_int)) {
 				if (visited.contains(n)) {
@@ -260,13 +260,13 @@ public class PathService {
 	}
 
 	public HashSet<Integer> neighborhoods(
-			ArrayList<ArrayList<Integer>> paths_ints) throws ExecutionException {
+			ArrayList<ArrayList<Integer>> paths_ints, boolean addNeighbors) throws ExecutionException {
 		HashSet<Integer> all_ints = new HashSet<Integer>();
 
 		for (ArrayList<Integer> path : paths_ints) {
 			for (int n : path) {
 				all_ints.add(n);
-				all_ints.addAll(cache.get(n));
+				if(addNeighbors) all_ints.addAll(cache.get(n));
 			}
 		}
 
@@ -287,13 +287,13 @@ public class PathService {
 			wordNodes.add(Integer.parseInt(gn.id));
 		}
 		Map<Integer, Map<String, Integer>> allWords = MySQLHandler.getWordMultiSet(wordNodes);
-
+		Map<Integer, String> descriptions = MySQLHandler.getDescription(path_ints);
 
 		for (GraphNode gn : nodes) {
 			int gn_int = Integer.parseInt(gn.toString());
 			ArrayList<String> selectedWords = new ArrayList<String>();
 			Map<String, Integer> nodeWords = allWords.get(gn_int);
-			nodeWords = sortByComparator(nodeWords);
+			//nodeWords = sortByComparator(nodeWords);
 
 			int totalFreq = 0;
 			for (String word : nodeWords.keySet()) {
@@ -314,7 +314,7 @@ public class PathService {
 			gn.id += label;
 
 			if (path_ints.contains(gn_int)) {
-				result = result + ",\n{\"name\":\"" + gn.toString() + "\", \"path\":true}";
+				result = result + ",\n{\"name\":\"" + gn.toString() + "\",\"description\":\"" + descriptions.get(gn_int) + "\",\"path\":true}";
 			} else {
 				result = result + ",\n{\"name\":\"" + gn.toString() + "\"}";
 			}
@@ -327,7 +327,7 @@ public class PathService {
 		return result;
 	}
 	
-	private Map<String, Integer> sortByComparator(Map<String, Integer> unsortMap) {
+	/*private Map<String, Integer> sortByComparator(Map<String, Integer> unsortMap) {
 
 		List<Entry<String, Integer>> list = new LinkedList<Entry<String, Integer>>(unsortMap.entrySet());
 
@@ -345,7 +345,7 @@ public class PathService {
 		}
 
 		return sortedMap;
-	}
+	}*/
 
 
 }

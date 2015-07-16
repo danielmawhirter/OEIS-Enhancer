@@ -3,7 +3,8 @@ package edu.rutgers.dimacs.reu.utility;
 public abstract class Edge implements Comparable<Edge> {
 	public GraphNode src, dest;
 
-	public Edge(GraphNode one, GraphNode two) {}
+	public Edge(GraphNode one, GraphNode two) {
+	}
 
 	@Override
 	public boolean equals(Object o) {
@@ -18,9 +19,13 @@ public abstract class Edge implements Comparable<Edge> {
 			return compare;
 		return this.dest.compareTo(e.dest);
 	}
-	
-	public String getID() {
+
+	public String getId() {
 		return "{" + src.id + "," + dest.id + "}";
+	}
+
+	public static String Id(String one, String two) {
+		return "";
 	}
 
 	@Override
@@ -28,5 +33,5 @@ public abstract class Edge implements Comparable<Edge> {
 		return "\"id\":\"" + src + "--" + dest + "\", \"source_name\":\"" + src
 				+ "\", \"target_name\":\"" + dest + "\"";
 	}
-	
+
 }

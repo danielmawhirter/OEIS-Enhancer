@@ -21,7 +21,7 @@ import javax.sql.DataSource;
 public final class MySQLHandler {
 	private static Connection con = null;
 	private static Statement st = null;
-	
+
 	public enum CrossrefTypes {
 		ALL(""), CONTEXTANDNORMAL("Adjacent=0"), NORMALONLY(
 				"Adjacent=0 AND In_Context=0");
@@ -34,7 +34,7 @@ public final class MySQLHandler {
 		public String getStmt() {
 			return stmt.length() > 0 ? " AND " + stmt : stmt;
 		}
-		
+
 		public String getWholeStmt() {
 			return stmt.length() > 0 ? " WHERE " + stmt : stmt;
 		}
@@ -179,7 +179,7 @@ public final class MySQLHandler {
 
 	public static Set<Integer> getCrossrefsLeaving(int sequenceId,
 			CrossrefTypes types) throws SQLException {
-		Set<Integer> out = new HashSet<>();
+		Set<Integer> out = new TreeSet<>();
 		ResultSet rs;
 
 		rs = st.executeQuery("SELECT otherSeq_Ref FROM Cross_Refs WHERE ourSeq_Ref="
@@ -284,20 +284,23 @@ public final class MySQLHandler {
 			Iterable<Integer> group) throws SQLException {
 		return getCrossrefsInto(group, CrossrefTypes.ALL);
 	}
-	
-	public static Map<Integer, Collection<Integer>> getAllCrossrefs(CrossrefTypes types) throws SQLException {
+
+	public static Map<Integer, Collection<Integer>> getAllCrossrefs(
+			CrossrefTypes types) throws SQLException {
 		Map<Integer, Collection<Integer>> result = new TreeMap<>();
-		ResultSet rs = st.executeQuery("SELECT ourSeq_Ref,otherSeq_Ref FROM Cross_Refs" + types.getWholeStmt());
-		while(rs.next()) {
+		ResultSet rs = st
+				.executeQuery("SELECT ourSeq_Ref,otherSeq_Ref FROM Cross_Refs"
+						+ types.getWholeStmt());
+		while (rs.next()) {
 			Integer src = rs.getInt(1);
 			Integer dest = rs.getInt(2);
 			Collection<Integer> srcAdj = result.get(src);
-			if(null == srcAdj) {
+			if (null == srcAdj) {
 				srcAdj = new TreeSet<>();
 				result.put(src, srcAdj);
 			}
 			Collection<Integer> destAdj = result.get(dest);
-			if(null == destAdj) {
+			if (null == destAdj) {
 				destAdj = new TreeSet<>();
 				result.put(dest, destAdj);
 			}
@@ -306,8 +309,9 @@ public final class MySQLHandler {
 		}
 		return result;
 	}
-	
-	public static Map<Integer, Collection<Integer>> getAllCrossrefs() throws SQLException {
+
+	public static Map<Integer, Collection<Integer>> getAllCrossrefs()
+			throws SQLException {
 		return getAllCrossrefs(CrossrefTypes.NORMALONLY);
 	}
 
@@ -321,6 +325,25 @@ public final class MySQLHandler {
 		return null;
 	}
 
+	public static Map<Integer, String> getDescription(Iterable<Integer> group) throws SQLException {
+		Map<Integer, String> descs = new TreeMap<>();
+		String in_str = "(";
+		for (Integer i : group) {
+			if (in_str.length() > 1)
+				in_str += ", " + i.toString();
+			else
+				in_str += i.toString();
+		}
+		in_str += ")";
+		ResultSet rs = st.executeQuery("SELECT SID,Name FROM Sequences WHERE SID IN "
+				+ in_str + ";");
+		while(rs.next()) {
+			descs.put(rs.getInt(1), rs.getString(2)); 
+		}
+		return descs;
+
+	}
+
 	public static int getAuthorYear(int id) throws SQLException {
 		ResultSet rs = st
 				.executeQuery("SELECT Year_Created FROM Authors WHERE SID="
@@ -332,7 +355,7 @@ public final class MySQLHandler {
 
 	public static Set<Integer> getSequencesWithKeyword(String keyword)
 			throws SQLException {
-		HashSet<Integer> ids = new HashSet<>();
+		Set<Integer> ids = new TreeSet<>();
 		ResultSet rs = st
 				.executeQuery("SELECT SID FROM Key_Words WHERE K_Word LIKE '"
 						+ keyword + "';");
@@ -342,8 +365,20 @@ public final class MySQLHandler {
 		return ids;
 	}
 
+	public static Set<Integer> getSequencesWithPeel(int value)
+			throws SQLException {
+		Set<Integer> ids = new TreeSet<>();
+		ResultSet rs = st
+				.executeQuery("SELECT SID FROM Sequences WHERE Peel_Value="
+						+ Integer.toString(value) + ";");
+		while (rs.next()) {
+			ids.add(rs.getInt(1));
+		}
+		return ids;
+	}
+
 	public static Set<String> getKeywordsOf(int id) throws SQLException {
-		HashSet<String> words = new HashSet<>();
+		Set<String> words = new HashSet<>();
 		ResultSet rs = st
 				.executeQuery("SELECT K_Word FROM Key_Words WHERE SID="
 						+ Integer.toString(id) + ";");
@@ -365,4 +400,5 @@ public final class MySQLHandler {
 
 		return out;
 	}
+
 }

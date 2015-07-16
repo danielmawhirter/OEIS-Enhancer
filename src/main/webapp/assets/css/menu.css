@@ -3,6 +3,7 @@
 div.mainmenu {
   position: absolute;
   font-weight: bold;
+  text-align: center;
   z-index: 10;
 }
 
@@ -10,11 +11,8 @@ div.menu {
   float: left;
   margin-left: 1.0em;
   margin-top: 1.0em;
+  /*text-align:center;*/
 }
-
-/*div.popup a:hover {
-  background-color: #faa;
-}*/
 
 div.menu:hover div:first-child {
   border-bottom: none;
@@ -34,13 +32,25 @@ div.menu div {
   padding: 5px;
 }
 
-div.popup div, div.popup a {
+div.popup div, div.popup input {
   display:block;
   text-decoration: none;
   margin: 2px 2px 2px 5px;
+  width: 14em;
 }
 
-div.popup div + div, div.popup a + a {
+div.popup div, div.popup select {
+  display:block;
+  text-decoration: none;
+  margin: 2px 2px 2px 5px;
+  width: 14em;
+}
+
+div.popup div + div, div.popup select + input {
+  margin-top: 10px; 
+} 
+
+div.popup div + div, div.popup input + input {
   margin-top: 10px; 
 } 
 
@@ -71,7 +81,6 @@ div.popup div + div, div.popup a + a {
   text-shadow:0px -1px 0px #2b665e;
   
   width: 14em;
-  text-align: center;
 }
 .menuButton:hover {
   background:-webkit-gradient(linear, left top, left bottom, color-stop(0.05, #6c7c7c), color-stop(1, #768d87));
