@@ -37,4 +37,10 @@ public class NodeService {
     return json;
   }
   
+  @GET
+  @Produces(MediaType.TEXT_PLAIN)
+  public String getHello() {
+	  return "This is Java code responding to a REST call with plaintext!";
+  }
+  
 }

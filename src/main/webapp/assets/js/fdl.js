@@ -20,6 +20,7 @@ var primaryNodes = null;
 var force = null;
 var nodes = null, links = null;
 var showPathNeighborhoods = false;
+var showDescriptionLabels = true;
 
 function clearSVG() {
 	d3.select("svg").remove();
@@ -564,7 +565,7 @@ function pathLayout() {
 	}
 
 	function allText(d) {
-		if(d.description) {
+		if(d.description && showDescriptionLabels) {
 			return d.description;
 		} else {
 			return d.name;
@@ -573,7 +574,7 @@ function pathLayout() {
 
 	function filteredText(d) {
 		if (d.path || d.name.indexOf("-") != -1) {
-			if(d.description) {
+			if(d.description && showDescriptionLabels) {
 				return d.description;
 			} else {
 				return d.name;

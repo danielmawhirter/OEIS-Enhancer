@@ -54,8 +54,7 @@
 					</archive>
 					<webResources>
 						<resource>
-							<directory>${project.basedir}/src/main/resources
-							</directory>
+							<directory>${project.basedir}/src/main/resources</directory>
 						</resource>
 					</webResources>
 					<warName>ROOT</warName>
@@ -68,7 +67,7 @@
 		<tomee.version>1.7.1</tomee.version>
 		<openejb.javaee.api>6.0-6</openejb.javaee.api>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<failOnMissingWebXml>false</failOnMissingWebXml>
+		<failOnMissingWebXml>true</failOnMissingWebXml>
 		<maven.compiler.target>1.7</maven.compiler.target>
 		<maven.compiler.source>1.7</maven.compiler.source>
 	</properties>

@@ -73,6 +73,7 @@ public final class MySQLHandler {
 
 	public static Map<String, Integer> getWordMultiSet(int sequenceId,
 			WordSources sources) throws SQLException {
+		Statement st = con.createStatement();
 		Map<String, Integer> wordMultiSet = new HashMap<>();
 		String query = "";
 		if (sources.comments) {

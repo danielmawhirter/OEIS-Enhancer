@@ -43,7 +43,7 @@ public class PathService {
 	public PathService() throws SQLException, NamingException {
 		MySQLHandler.setup();
 		cache = CacheBuilder.newBuilder().maximumSize(300000)
-				.expireAfterAccess(60, TimeUnit.MINUTES)
+				.expireAfterAccess(600, TimeUnit.MINUTES)
 				.build(new CacheLoader<Integer, Collection<Integer>>() {
 					@Override
 					public Collection<Integer> load(Integer node) throws SQLException {
@@ -55,7 +55,7 @@ public class PathService {
 						return neighbors_ints;
 					}
 				});
-		cache.putAll(MySQLHandler.getAllCrossrefs()); //loads the entire graph, takes 2.5s
+		//cache.putAll(MySQLHandler.getAllCrossrefs()); //loads the entire graph, takes 2.5s
 		System.out.println("Path Service Instanciated");
 	}
 
@@ -65,9 +65,20 @@ public class PathService {
 	public String getAddition(@PathParam("newNode") String newNode,
 			@PathParam("pathTo") String existing, @PathParam("includeNeighborhoods") @DefaultValue("false") boolean includeNeighborhoods) {
 		try {
+			
+			long timeStart;
+			
+			if(cache.size() < 10000) {
+				timeStart = System.nanoTime();
+				cache.putAll(MySQLHandler.getAllCrossrefs());
+				LOGGER.info("Refilling cache took "
+						+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
+						+ "ms");
+			}
+			
 			//log
 			LOGGER.info("query: " + newNode + "/" + existing);
-			long timeStart = System.nanoTime();
+			timeStart = System.nanoTime();
 			
 			//run
 			ArrayList<ArrayList<Integer>> paths = getShortestPath(newNode,
