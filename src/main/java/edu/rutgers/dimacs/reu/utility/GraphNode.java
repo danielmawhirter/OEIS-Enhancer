@@ -1,19 +1,21 @@
 package edu.rutgers.dimacs.reu.utility;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.TreeSet;
 
 public class GraphNode implements Comparable<GraphNode> {
 	public String id, clusterId;
-	private TreeSet<GraphNode> neighbors;
+	private HashSet<Edge> incidentEdges;
+	//private TreeSet<GraphNode> neighbors;
 	public int weight, int_edge_wsum;
-	private boolean removed = false;
+	//private boolean removed = false;
 	
 	public GraphNode(String id) {
 		super();
 		this.id = id;
-		this.neighbors = new TreeSet<>();;
+		//this.neighbors = new TreeSet<>();
+		this.incidentEdges = new HashSet<>();
 	}
 	
 	@Override
@@ -22,7 +24,7 @@ public class GraphNode implements Comparable<GraphNode> {
 	}
 	
 	public int getDegree() {
-		return this.neighbors.size();
+		return this.incidentEdges.size();
 	}
 	
 	@Override
@@ -34,32 +36,49 @@ public class GraphNode implements Comparable<GraphNode> {
 		return o instanceof GraphNode && ((GraphNode)o).id.equals(this.id);
 	}
 	
-	public void remove() {
+	/*public void remove() {
 		removed = true;
 	}
 	
 	public boolean removed() {
 		return removed;
-	}
+	}*/
 	
-	public Collection<GraphNode> getNeighbors() {
+	/*public Collection<GraphNode> getNeighbors() {
 		Collection<GraphNode> removed = new LinkedList<>();
 		for(GraphNode gn : neighbors) {
 			if(gn.removed()) removed.add(gn);
 		}
 		neighbors.removeAll(removed);
 		return neighbors;
+	}*/
+	
+	public Collection<GraphNode> getNeighbors() {
+		LinkedList<GraphNode> neighbors = new LinkedList<>();
+		for(Edge e : incidentEdges) {
+			if(e.dest != this) {
+				neighbors.push(e.dest);
+			}
+			if(e instanceof UndirectedEdge && e.src != this) {
+				neighbors.push(e.src);
+			}
+		}
+		return neighbors;
 	}
 	
-	public boolean addNeighbor(GraphNode gn) {
-		return neighbors.add(gn);
+	public Collection<Edge> getIncidentEdges() {
+		return this.incidentEdges;
 	}
 	
-	public boolean removeNeighbor(GraphNode gn) {
-		return neighbors.remove(gn);
+	public boolean addIncidentEdge(Edge e) {
+		return incidentEdges.add(e);
 	}
 	
-	public boolean neighbors(GraphNode gn) {
+	public boolean removeIncidentEdge(Edge e) {
+		return incidentEdges.remove(e);
+	}
+	
+	/*public boolean neighbors(GraphNode gn) {
 		return neighbors.contains(gn);
-	}
+	}*/
 }

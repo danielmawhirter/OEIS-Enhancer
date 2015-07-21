@@ -1,5 +1,10 @@
 package edu.rutgers.dimacs.reu;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -21,7 +26,10 @@ import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.StreamingOutput;
 import javax.ws.rs.PathParam;
 
 import com.google.common.cache.CacheBuilder;
@@ -62,7 +70,7 @@ public class PathService {
 	@GET
 	@Path("{newNode}/{pathTo}/{includeNeighborhoods}")
 	@Produces(MediaType.APPLICATION_JSON)
-	public String getAddition(@PathParam("newNode") String newNode,
+	public Response getAddition(@PathParam("newNode") String newNode,
 			@PathParam("pathTo") String existing, @PathParam("includeNeighborhoods") @DefaultValue("false") boolean includeNeighborhoods) {
 		try {
 			
@@ -104,22 +112,15 @@ public class PathService {
 			for (ArrayList<Integer> path : paths) {
 				paths_set.addAll(path);
 			}
-			String result = finalJSON(graph, paths_set);
-
-			//log
-			LOGGER.info("generating JSON took "
-				+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
-				+ "ms");
-			timeStart = System.nanoTime();
-
-			return result;
+			StreamingOutput stream = finalJSON(graph, paths_set);
+			return Response.ok(stream).build();
 		
 		} catch (ExecutionException e) {
-			e.printStackTrace();
-			return "{\"error\": \"cache error\"}";
+			LOGGER.severe("cache failure on query " + "");
+			return Response.serverError().build();
 		} catch (SQLException e) {
-			e.printStackTrace();
-			return "{\"error\": \"error getting words for labeling\"}";
+			LOGGER.severe("labeling failure (sql)");
+			return Response.serverError().build();
 		}
 	}
 
@@ -147,33 +148,44 @@ public class PathService {
 		return graph;
 	}
 
-	public static String edgesJSON(Graph graph) {
-
-		String result = "";
+	public static void writeEdgesJSON(Graph graph, Writer writer) throws IOException {
+		boolean first = true;
 		TreeSet<Edge> orderedEdges = new TreeSet<>(graph.getEdgeSet());
 		for (Edge edge : orderedEdges) {
-			result = result + ",\n{" + edge.toString() + "}";
+			if(first) {
+				first = false;
+				writer.write("\n{" + edge.toString() + "}");
+			} else {
+				writer.write(",\n{" + edge.toString() + "}");
+			}
 		}
-
-		if (result.equals("")) {
-			return result;
-		}
-		
-		if (result.charAt(0) == ',') {
-			result = result.substring(1);
-		}
-
-		return result;
 	}
 
-	public String finalJSON(Graph graph, HashSet<Integer> path_ints) throws SQLException {
-		String result = "{\n\"nodes\":[\n";
-		result = result + nodesJSON(graph, path_ints);
-		result = result + "], \"links\":[\n";
-		result = result + edgesJSON(graph) + "]\n}";
-
-		return result;
-		// return
+	public StreamingOutput finalJSON(final Graph graph, final HashSet<Integer> path_ints) {
+		final long timeStart = System.nanoTime();
+		StreamingOutput stream = new StreamingOutput() {
+			@Override
+			public void write(OutputStream os) throws IOException,
+					WebApplicationException {
+				Writer writer = new BufferedWriter(new OutputStreamWriter(
+						os));
+				writer.write("{\n\"nodes\":[\n");
+				try {
+					nodesJSON(graph, path_ints, writer);
+				} catch (SQLException e) {
+					throw new IOException(e);
+				}
+				writer.write("], \"links\":[\n");
+				writeEdgesJSON(graph, writer);
+				writer.write("]\n}");
+				writer.flush();
+				writer.close();
+				LOGGER.info("generating JSON took "
+						+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
+						+ "ms");
+			}
+		};
+		return stream;
 	}
 
 	public ArrayList<ArrayList<Integer>> getShortestPath(String source,
@@ -284,12 +296,9 @@ public class PathService {
 		return all_ints;
 	}
 
-	public String nodesJSON(Graph graph, HashSet<Integer> path_ints) throws SQLException {
-
-		String result = "";
-		
+	public void nodesJSON(Graph graph, HashSet<Integer> path_ints, Writer writer) throws SQLException, IOException {
 		if (path_ints.size() == 0) {
-			return result;
+			return;
 		}
 
 		TreeSet<GraphNode> nodes = new TreeSet<>(graph.getNodeSet());
@@ -300,6 +309,7 @@ public class PathService {
 		Map<Integer, Map<String, Integer>> allWords = MySQLHandler.getWordMultiSet(wordNodes);
 		Map<Integer, String> descriptions = MySQLHandler.getDescription(path_ints);
 
+		boolean first = true;
 		for (GraphNode gn : nodes) {
 			int gn_int = Integer.parseInt(gn.toString());
 			ArrayList<String> selectedWords = new ArrayList<String>();
@@ -317,25 +327,28 @@ public class PathService {
 				} //after sorting, check all n elements for this property -_-
 			}
 			
-			
 			String label = "";
 			for (String selected : selectedWords) {
 				label = label + "-" + selected;
 			}
 			gn.id += label;
-
-			if (path_ints.contains(gn_int)) {
-				result = result + ",\n{\"name\":\"" + gn.toString() + "\",\"description\":\"" + descriptions.get(gn_int) + "\",\"path\":true}";
+			if(first) {
+				first = false;
 			} else {
-				result = result + ",\n{\"name\":\"" + gn.toString() + "\"}";
+				writer.write(",");
+			}
+			if (path_ints.contains(gn_int)) {
+				writer.write("\n{\"name\":\"");
+				writer.write(gn.toString());
+				writer.write("\",\"description\":\"");
+				writer.write(descriptions.get(gn_int));
+				writer.write("\",\"path\":true}");
+			} else {
+				writer.write("\n{\"name\":\"");
+				writer.write(gn.toString());
+				writer.write("\"}");
 			}
 		}
-		
-		if (result.charAt(0) == ',') {
-			result = result.substring(1);
-		}
-
-		return result;
 	}
 	
 	/*private Map<String, Integer> sortByComparator(Map<String, Integer> unsortMap) {

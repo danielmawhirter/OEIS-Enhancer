@@ -87,7 +87,7 @@ public class EdgeSet {
 			return stream;
 		}
 
-		public static class Edge {
+		private static class Edge {
 			String src, dest;
 			boolean forward, reverse;
 			Integer count = 0;

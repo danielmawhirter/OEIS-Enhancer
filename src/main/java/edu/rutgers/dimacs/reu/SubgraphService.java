@@ -45,7 +45,7 @@ public class SubgraphService {
 		for (String s : keywords) {
 			String word = s.toLowerCase();
 			if(!knownKeywords.contains(word)) {
-				throw new RuntimeException("Input is not a known keyword");
+				throw new IllegalArgumentException("Input \"" + s + "\" is not a known keyword");
 			} else {
 				allWithKeywords.addAll(MySQLHandler.getSequencesWithKeyword(word));
 			}
@@ -61,8 +61,8 @@ public class SubgraphService {
 
 	public Graph buildGraph(Set<Integer> nodes) throws SQLException {
 		Graph graph = new Graph(false, "subgraph");
-		//Map<Integer, Collection<Integer>> map = MySQLHandler.getCrossrefsLeaving(nodes, MySQLHandler.CrossrefTypes.NORMALONLY);
-		Map<Integer, Collection<Integer>> map = MySQLHandler.getAllCrossrefs();
+		Map<Integer, Collection<Integer>> map = MySQLHandler.getCrossrefsLeaving(nodes, MySQLHandler.CrossrefTypes.NORMALONLY);
+		//Map<Integer, Collection<Integer>> map = MySQLHandler.getAllCrossrefs();
 		for (Integer i : map.keySet()) {
 			for(Integer j : map.get(i)) {
 				if(nodes.contains(i) && nodes.contains(j)) {
@@ -93,6 +93,10 @@ public class SubgraphService {
 				}
 			}
 		}
+		return graph;
+	}
+	
+	public Graph inducePeelValue(Graph graph, int level) {
 		return graph;
 	}
 

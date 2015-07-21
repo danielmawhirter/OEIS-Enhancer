@@ -22,7 +22,7 @@ public final class MySQLHandler {
 	private static Connection con = null;
 	private static Statement st = null;
 
-	public enum CrossrefTypes {
+	public static enum CrossrefTypes {
 		ALL(""), CONTEXTANDNORMAL("Adjacent=0"), NORMALONLY(
 				"Adjacent=0 AND In_Context=0");
 		private final String stmt;
@@ -40,7 +40,7 @@ public final class MySQLHandler {
 		}
 	}
 
-	public enum WordSources {
+	public static enum WordSources {
 		ALL(true, true, true), COMMENTS(true, false, false), REFERENCES(false,
 				true, false), LINKS(false, false, true), NOTCOMMENTS(false,
 				true, true), NOTREFERENCES(true, false, true), NOTLINKS(true,
@@ -309,6 +309,11 @@ public final class MySQLHandler {
 			destAdj.add(src);
 		}
 		return result;
+	}
+	
+	public static Graph getInducedSubgraph(
+			CrossrefTypes types) throws SQLException {
+		return null;
 	}
 
 	public static Map<Integer, Collection<Integer>> getAllCrossrefs()

@@ -13,19 +13,20 @@ public abstract class Edge implements Comparable<Edge> {
 	}
 
 	@Override
-	public int compareTo(Edge e) {
+	public final int compareTo(Edge e) {
 		int compare = this.src.compareTo(e.src);
 		if (compare != 0)
 			return compare;
 		return this.dest.compareTo(e.dest);
 	}
-
-	public String getId() {
-		return "{" + src.id + "," + dest.id + "}";
+	
+	@Override
+	public final int hashCode() {
+		return getId().hashCode();
 	}
 
-	public static String Id(String one, String two) {
-		return "";
+	public final String getId() {
+		return "{" + src.id + "," + dest.id + "}";
 	}
 
 	@Override
@@ -33,5 +34,7 @@ public abstract class Edge implements Comparable<Edge> {
 		return "\"id\":\"" + src + "--" + dest + "\", \"source_name\":\"" + src
 				+ "\", \"target_name\":\"" + dest + "\"";
 	}
+	
+	public abstract void mergeIn(Edge e);
 
 }
