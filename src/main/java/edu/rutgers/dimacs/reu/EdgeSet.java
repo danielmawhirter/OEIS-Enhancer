@@ -120,12 +120,21 @@ public class EdgeSet {
 
 			@Override
 			public String toString() {
-				return "{\"id\":\"" + src + "--" + dest + "\",\"source_name\":\"" + src
-						+ "\", \"target_name\":\"" + dest + "\",\"value\":"
-						+ count
-						+ ((forward && !reverse) ? ",\"forward\":true" : "")
-						+ ((reverse && !forward) ? ",\"reverse\":true" : "")
-						+ "}";
+				StringBuilder builder = new StringBuilder();
+				builder.append("{\"id\":\"");
+				builder.append(src.toString());
+				builder.append("--");
+				builder.append(dest.toString());
+				builder.append("\",\"source_name\":\"");
+				builder.append(src.toString());
+				builder.append("\", \"target_name\":\"");
+				builder.append(dest.toString());
+				builder.append("\",\"value\":");
+				builder.append(count.toString());
+				builder.append((forward && !reverse) ? ",\"forward\":true" : "");
+				builder.append((reverse && !forward) ? ",\"reverse\":true" : "");
+				builder.append("}");
+				return builder.toString();
 			}
 		}
 	}

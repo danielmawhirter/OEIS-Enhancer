@@ -7,6 +7,7 @@
  console.log(json[i]);
  }
  });*/
+
 // assign menu buttons to actions
 document.getElementById("mainViewButton").onclick = hierarchyLayout;
 document.getElementById("relationViewButton").onclick = pathLayout;
@@ -333,7 +334,7 @@ function hierarchyLayout() {
 					d.color = n.color;
 				interests.push(d.name);
 			});
-			if (interests.length <= 50) {
+			/*if (interests.length <= 50) {
 				var queryString = "incidentEdges/" + selectedGraph + "/";
 				var first = true;
 				for (i = 0; i < interests.length; i++) {
@@ -384,7 +385,16 @@ function hierarchyLayout() {
 				}
 				d3.json("incidentEdges/beginInput", intermediate);
 				update();
-			}
+			}*/
+			d3.json("incidentEdges/getToken")
+			.header("Content-Type", "application/json")
+			.post(JSON.stringify({query: interests}), function(error, data) {
+			    if(error) throw error;
+				console.log(data);
+				d3.json("incidentEdges/withToken/" + selectedGraph
+						+ "/" + data.token, updateLinks);
+			});
+			update();
 		} else {
 			if (isNaN(n.name.split("p")[0]))
 				alert("Leaf id: " + n.name);

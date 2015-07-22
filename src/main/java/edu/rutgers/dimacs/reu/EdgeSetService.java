@@ -4,7 +4,9 @@ package edu.rutgers.dimacs.reu;
 
 import javax.ejb.Lock;
 import javax.ejb.Singleton;
+import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
@@ -27,6 +29,8 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 
+import org.json.*;
+
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.cache.CacheLoader;
@@ -38,7 +42,7 @@ import static javax.ejb.LockType.READ;
 @Singleton
 @Lock(READ)
 public class EdgeSetService {
-	private ClassLoader cl;
+	private final ClassLoader cl;
 	LoadingCache<String, HierarchyTree> treeCache;
 	LoadingCache<Integer, LinkedList<String>> requestTokenCache;
 	private static AtomicInteger tokenNum = new AtomicInteger(0);
@@ -47,6 +51,7 @@ public class EdgeSetService {
 
 	public EdgeSetService() {
 		super();
+		cl = this.getClass().getClassLoader();
 		treeCache = CacheBuilder.newBuilder().maximumSize(10)
 				.expireAfterAccess(5, TimeUnit.MINUTES)
 				.build(new CacheLoader<String, HierarchyTree>() {
@@ -65,7 +70,6 @@ public class EdgeSetService {
 						return new LinkedList<>();
 					}
 				});
-		cl = this.getClass().getClassLoader();
 		LOGGER.info("EdgeSetService instanciated");
 	}
 
@@ -78,8 +82,30 @@ public class EdgeSetService {
 		LOGGER.info("Query: " + graph + "/" + query);
 		return getEdges(graph, Arrays.asList(query.split("-")));
 	}
+	
+	@POST
+	@Path("incidentEdges/getToken")
+	@Consumes(MediaType.APPLICATION_JSON)
+	@Produces(MediaType.APPLICATION_JSON)
+	public String getToken(String s) {
+		JSONObject obj = new JSONObject(s);
+		JSONArray query = obj.getJSONArray("query");
+		int token = tokenNum.incrementAndGet();
+		try {
+			LinkedList<String> list = requestTokenCache.get(token);
+			for(int i = 0; i < query.length(); i++) {
+				list.add(query.getString(i));
+			}
+		} catch (ExecutionException e) {
+			LOGGER.severe(e.getMessage());
+			return "{\"error\":\"cache error\"}";
+		}
+		LOGGER.info("Token " + Integer.toString(token)
+				+ " generated");
+		return new JSONObject().put("token", token).toString();
+	}
 
-	@GET
+	/*@GET
 	@Path("incidentEdges/beginInput")
 	@Produces(MediaType.APPLICATION_JSON)
 	public String beginInput() {
@@ -94,7 +120,7 @@ public class EdgeSetService {
 				+ " generated");
 		return "{\"token\":" + Integer.toString(token) + "}";
 	}
-
+	
 	@GET
 	@Path("incidentEdges/addInput/{token}/{query}")
 	@Produces(MediaType.APPLICATION_JSON)
@@ -111,7 +137,7 @@ public class EdgeSetService {
 		LOGGER.info("Token " + Integer.toString(token) + " added data: "
 				+ query);
 		return "{\"token\":" + Integer.toString(token) + "}";
-	}
+	}*/
 
 	@GET
 	@Path("incidentEdges/withToken/{graph}/{token}")
@@ -128,7 +154,7 @@ public class EdgeSetService {
 
 	private Response getEdges(String graph, List<String> nodes) {
 		HashMap<String, String> leafToCluster;
-		String logString = "";
+		StringBuilder logString = new StringBuilder();
 		long timeStart = System.nanoTime();
 		HierarchyTree tree = null;
 		try {
@@ -137,17 +163,17 @@ public class EdgeSetService {
 			LOGGER.severe(e.getMessage());
 			return Response.serverError().build();
 		}
-		logString += Integer.toString(nodes.size()) + " vertices in query\n";
+		logString.append(Integer.toString(nodes.size()));
+		logString.append(" vertices in query\n");
 		leafToCluster = new HashMap<>();
 		for (String s : nodes) {
 			for (String d : tree.getLeaves(s)) {
 				leafToCluster.put(d, s);
 			}
 		}
-		logString += "Tree interaction took "
-				+ Integer
-						.toString((int) ((System.nanoTime() - timeStart) / 1000000))
-				+ "ms\n";
+		logString.append("Tree interaction took ");
+		logString.append(Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000)));
+		logString.append("ms\n");
 
 		InputStream edge_is = cl.getResourceAsStream("graphs/" + graph
 				+ "/edges.txt");
@@ -159,11 +185,11 @@ public class EdgeSetService {
 			LOGGER.severe(e.getMessage());
 			return Response.serverError().build();
 		}
-		logString += "Edge interaction took "
-				+ Integer
-						.toString((int) ((System.nanoTime() - timeStart) / 1000000))
-				+ "ms\nQuery success";
-		LOGGER.info(logString);
+		logString.append("Edge interaction took ");
+		logString.append(Integer
+						.toString((int) ((System.nanoTime() - timeStart) / 1000000)));
+		logString.append("ms\nQuery success");
+		LOGGER.info(logString.toString());
 		return Response.ok(stream).build();
 	}
 
