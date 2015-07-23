@@ -10,9 +10,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ExecutionException;
 
 import javax.ejb.Lock;
 import javax.ejb.Singleton;
+import javax.naming.NamingException;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -21,6 +23,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import edu.rutgers.dimacs.reu.utility.*;
+import edu.rutgers.dimacs.reu.utility.DataStore.EdgeType;
 
 @Path("subgraph")
 @Singleton
@@ -40,14 +43,14 @@ public class SubgraphService {
 	}
 
 	public Iterable<Integer> subsetByKeywords(Iterable<Integer> baseNodes,
-			Iterable<String> keywords) throws SQLException {
+			Iterable<String> keywords) throws SQLException, NamingException {
 		Set<Integer> allWithKeywords = new TreeSet<>();
 		for (String s : keywords) {
 			String word = s.toLowerCase();
 			if(!knownKeywords.contains(word)) {
 				throw new IllegalArgumentException("Input \"" + s + "\" is not a known keyword");
 			} else {
-				allWithKeywords.addAll(MySQLHandler.getSequencesWithKeyword(word));
+				allWithKeywords.addAll(DataStore.getInstance().getSequencesWithKeyword(word));
 			}
 		}
 		List<Integer> subsetWithKeywords = new LinkedList<>();
@@ -59,9 +62,9 @@ public class SubgraphService {
 		return subsetWithKeywords;
 	}
 
-	public Graph buildGraph(Set<Integer> nodes) throws SQLException {
+	public Graph buildGraph(Set<Integer> nodes) throws ExecutionException {
 		Graph graph = new Graph(false, "subgraph");
-		Map<Integer, Collection<Integer>> map = MySQLHandler.getCrossrefsLeaving(nodes, MySQLHandler.CrossrefTypes.NORMALONLY);
+		Map<Integer, Collection<Integer>> map = DataStore.getInstance().getCrossrefsWithin(nodes, EdgeType.NORMAL);
 		//Map<Integer, Collection<Integer>> map = MySQLHandler.getAllCrossrefs();
 		for (Integer i : map.keySet()) {
 			for(Integer j : map.get(i)) {
@@ -97,6 +100,7 @@ public class SubgraphService {
 	}
 	
 	public Graph inducePeelValue(Graph graph, int level) {
+		peel(graph, level - 1);
 		return graph;
 	}
 

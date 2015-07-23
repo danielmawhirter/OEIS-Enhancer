@@ -334,58 +334,6 @@ function hierarchyLayout() {
 					d.color = n.color;
 				interests.push(d.name);
 			});
-			/*if (interests.length <= 50) {
-				var queryString = "incidentEdges/" + selectedGraph + "/";
-				var first = true;
-				for (i = 0; i < interests.length; i++) {
-					if (first) {
-						first = false;
-						queryString = queryString.concat(interests[i]);
-					} else {
-						queryString = queryString.concat("-" + interests[i]);
-					}
-				}
-				console.log(queryString);
-				d3.json(queryString, updateLinks);
-				update();
-			} else {
-				var token = null;
-				function intermediate(error, json) {
-					if (error) {
-						alert("Server unresponsive");
-						return;
-					}
-					if (json.error) {
-						console.log("error", json);
-						return;
-					}
-					if (null == token)
-						token = json.token;
-					else if (token != json.token)
-						console.log("error", token, json.token);
-					if (interests.length > 0) {
-						var queryString = "incidentEdges/addInput/" + token
-								+ "/";
-						var first = true;
-						for (i = 0; i < 50 && interests.length > 0; i++) {
-							var element = interests.shift();
-							if (first) {
-								first = false;
-								queryString = queryString.concat(element);
-							} else {
-								queryString = queryString.concat("-" + element);
-							}
-						}
-						console.log(queryString);
-						d3.json(queryString, intermediate);
-					} else {
-						d3.json("incidentEdges/withToken/" + selectedGraph
-								+ "/" + token, updateLinks);
-					}
-				}
-				d3.json("incidentEdges/beginInput", intermediate);
-				update();
-			}*/
 			d3.json("incidentEdges/getToken")
 			.header("Content-Type", "application/json")
 			.post(JSON.stringify({query: interests}), function(error, data) {
@@ -406,14 +354,12 @@ function hierarchyLayout() {
 	// Returns the active antichain
 	function flatten(root) {
 		var nodes = [];
-
 		function recurse(node) {
 			if (node.active)
 				nodes.push(node);
 			else if (node.children)
 				node.children.forEach(recurse);
 		}
-
 		recurse(root);
 		return nodes;
 	}
@@ -722,6 +668,7 @@ function addToPathView() {
 	}
 	additionPending = true;
 	var addedSequence = textField.value;
+	textField.value = "";
 	// console.log(nodes);
 	queryString = "pathAddition/" + addedSequence + "/";
 	if (nodes.length == 0)

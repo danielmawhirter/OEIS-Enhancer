@@ -18,9 +18,10 @@ import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.sql.DataSource;
 
-public final class MySQLHandler {
-	private static Connection con = null;
-	private static Statement st = null;
+final class MySQLHandler {
+	private Connection con = null;
+	private Statement st = null;
+	private static MySQLHandler instance = null;
 
 	public static enum CrossrefTypes {
 		ALL(""), CONTEXTANDNORMAL("Adjacent=0"), NORMALONLY(
@@ -54,16 +55,26 @@ public final class MySQLHandler {
 		}
 	}
 
-	public static boolean setup() throws NamingException, SQLException {
+	static synchronized MySQLHandler getInstance() throws NamingException,
+			SQLException {
+		if (null == instance)
+			instance = new MySQLHandler();
+		if(instance.con.isClosed()) {
+			instance.close();
+			instance = new MySQLHandler();
+		}
+		return instance;
+	}
+
+	private MySQLHandler() throws NamingException, SQLException {
 		Context initCtx = new InitialContext();
 		Context envCtx = (Context) initCtx.lookup("java:comp/env");
 		DataSource ds = (DataSource) envCtx.lookup("jdbc/OEIS-REU-2015");
 		con = ds.getConnection();
 		st = con.createStatement();
-		return true;
 	}
 
-	public static boolean close() throws SQLException {
+	public boolean close() throws SQLException {
 		st.close();
 		st = null;
 		con.close();
@@ -71,7 +82,7 @@ public final class MySQLHandler {
 		return true;
 	}
 
-	public static Map<String, Integer> getWordMultiSet(int sequenceId,
+	public Map<String, Integer> getWordMultiSet(int sequenceId,
 			WordSources sources) throws SQLException {
 		Statement st = con.createStatement();
 		Map<String, Integer> wordMultiSet = new HashMap<>();
@@ -114,12 +125,12 @@ public final class MySQLHandler {
 		return wordMultiSet;
 	}
 
-	public static Map<String, Integer> getWordMultiSet(int sequenceId)
+	public Map<String, Integer> getWordMultiSet(int sequenceId)
 			throws SQLException {
 		return getWordMultiSet(sequenceId, WordSources.ALL);
 	}
 
-	public static Map<Integer, Map<String, Integer>> getWordMultiSet(
+	public Map<Integer, Map<String, Integer>> getWordMultiSet(
 			Iterable<Integer> group, WordSources sources) throws SQLException {
 		Map<Integer, Map<String, Integer>> result = new TreeMap<>();
 		String in_str = "(";
@@ -173,13 +184,13 @@ public final class MySQLHandler {
 		return result;
 	}
 
-	public static Map<Integer, Map<String, Integer>> getWordMultiSet(
+	public Map<Integer, Map<String, Integer>> getWordMultiSet(
 			Iterable<Integer> sequenceIds) throws SQLException {
 		return getWordMultiSet(sequenceIds, WordSources.ALL);
 	}
 
-	public static Set<Integer> getCrossrefsLeaving(int sequenceId,
-			CrossrefTypes types) throws SQLException {
+	public Set<Integer> getCrossrefsLeaving(int sequenceId, CrossrefTypes types)
+			throws SQLException {
 		Set<Integer> out = new TreeSet<>();
 		ResultSet rs;
 
@@ -192,12 +203,11 @@ public final class MySQLHandler {
 		return out;
 	}
 
-	public static Set<Integer> getCrossrefsLeaving(int sequenceId)
-			throws SQLException {
+	public Set<Integer> getCrossrefsLeaving(int sequenceId) throws SQLException {
 		return getCrossrefsLeaving(sequenceId, CrossrefTypes.ALL);
 	}
 
-	public static Map<Integer, Collection<Integer>> getCrossrefsLeaving(
+	public Map<Integer, Collection<Integer>> getCrossrefsLeaving(
 			Iterable<Integer> group, CrossrefTypes types) throws SQLException {
 		Map<Integer, Collection<Integer>> out = new TreeMap<Integer, Collection<Integer>>();
 		String in_str = "(";
@@ -227,13 +237,13 @@ public final class MySQLHandler {
 		return out;
 	}
 
-	public static Map<Integer, Collection<Integer>> getCrossrefsLeaving(
+	public Map<Integer, Collection<Integer>> getCrossrefsLeaving(
 			Iterable<Integer> group) throws SQLException {
 		return getCrossrefsLeaving(group, CrossrefTypes.ALL);
 	}
 
-	public static Set<Integer> getCrossrefsInto(int sequenceId,
-			CrossrefTypes types) throws SQLException {
+	public Set<Integer> getCrossrefsInto(int sequenceId, CrossrefTypes types)
+			throws SQLException {
 		Set<Integer> out = new TreeSet<>();
 		ResultSet rs;
 
@@ -246,12 +256,11 @@ public final class MySQLHandler {
 		return out;
 	}
 
-	public static Set<Integer> getCrossrefsInto(int sequenceId)
-			throws SQLException {
+	public Set<Integer> getCrossrefsInto(int sequenceId) throws SQLException {
 		return getCrossrefsInto(sequenceId, CrossrefTypes.ALL);
 	}
 
-	public static Map<Integer, LinkedList<Integer>> getCrossrefsInto(
+	public Map<Integer, LinkedList<Integer>> getCrossrefsInto(
 			Iterable<Integer> group, CrossrefTypes types) throws SQLException {
 		Map<Integer, LinkedList<Integer>> out = new TreeMap<Integer, LinkedList<Integer>>();
 		String in_str = "(";
@@ -281,14 +290,16 @@ public final class MySQLHandler {
 		return out;
 	}
 
-	public static Map<Integer, LinkedList<Integer>> getCrossrefsInto(
+	public Map<Integer, LinkedList<Integer>> getCrossrefsInto(
 			Iterable<Integer> group) throws SQLException {
 		return getCrossrefsInto(group, CrossrefTypes.ALL);
 	}
 
-	public static Map<Integer, Collection<Integer>> getAllCrossrefs(
-			CrossrefTypes types) throws SQLException {
+	public Map<Integer, Collection<Integer>> getAllCrossrefs(CrossrefTypes types)
+			throws SQLException {
+
 		Map<Integer, Collection<Integer>> result = new TreeMap<>();
+
 		ResultSet rs = st
 				.executeQuery("SELECT ourSeq_Ref,otherSeq_Ref FROM Cross_Refs"
 						+ types.getWholeStmt());
@@ -310,18 +321,13 @@ public final class MySQLHandler {
 		}
 		return result;
 	}
-	
-	public static Graph getInducedSubgraph(
-			CrossrefTypes types) throws SQLException {
-		return null;
-	}
 
-	public static Map<Integer, Collection<Integer>> getAllCrossrefs()
+	public Map<Integer, Collection<Integer>> getAllCrossrefs()
 			throws SQLException {
 		return getAllCrossrefs(CrossrefTypes.NORMALONLY);
 	}
 
-	public static String getDescription(int id) throws SQLException {
+	public String getDescription(int id) throws SQLException {
 
 		ResultSet rs = st.executeQuery("SELECT Name FROM Sequences WHERE SID="
 				+ Integer.toString(id) + ";");
@@ -331,7 +337,8 @@ public final class MySQLHandler {
 		return null;
 	}
 
-	public static Map<Integer, String> getDescription(Iterable<Integer> group) throws SQLException {
+	public Map<Integer, String> getDescription(Iterable<Integer> group)
+			throws SQLException {
 		Map<Integer, String> descs = new TreeMap<>();
 		String in_str = "(";
 		for (Integer i : group) {
@@ -341,16 +348,17 @@ public final class MySQLHandler {
 				in_str += i.toString();
 		}
 		in_str += ")";
-		ResultSet rs = st.executeQuery("SELECT SID,Name FROM Sequences WHERE SID IN "
-				+ in_str + ";");
-		while(rs.next()) {
-			descs.put(rs.getInt(1), rs.getString(2)); 
+		ResultSet rs = st
+				.executeQuery("SELECT SID,Name FROM Sequences WHERE SID IN "
+						+ in_str + ";");
+		while (rs.next()) {
+			descs.put(rs.getInt(1), rs.getString(2));
 		}
 		return descs;
 
 	}
 
-	public static int getAuthorYear(int id) throws SQLException {
+	public int getAuthorYear(int id) throws SQLException {
 		ResultSet rs = st
 				.executeQuery("SELECT Year_Created FROM Authors WHERE SID="
 						+ Integer.toString(id) + ";");
@@ -359,7 +367,7 @@ public final class MySQLHandler {
 		return -1;
 	}
 
-	public static Set<Integer> getSequencesWithKeyword(String keyword)
+	public Set<Integer> getSequencesWithKeyword(String keyword)
 			throws SQLException {
 		Set<Integer> ids = new TreeSet<>();
 		ResultSet rs = st
@@ -371,8 +379,7 @@ public final class MySQLHandler {
 		return ids;
 	}
 
-	public static Set<Integer> getSequencesWithPeel(int value)
-			throws SQLException {
+	public Set<Integer> getSequencesWithPeel(int value) throws SQLException {
 		Set<Integer> ids = new TreeSet<>();
 		ResultSet rs = st
 				.executeQuery("SELECT SID FROM Sequences WHERE Peel_Value="
@@ -383,7 +390,7 @@ public final class MySQLHandler {
 		return ids;
 	}
 
-	public static Set<String> getKeywordsOf(int id) throws SQLException {
+	public Set<String> getKeywordsOf(int id) throws SQLException {
 		Set<String> words = new HashSet<>();
 		ResultSet rs = st
 				.executeQuery("SELECT K_Word FROM Key_Words WHERE SID="
@@ -394,7 +401,7 @@ public final class MySQLHandler {
 		return words;
 	}
 
-	public static Set<String> getContributors(int id) throws SQLException {
+	public Set<String> getContributors(int id) throws SQLException {
 		Set<String> out = new HashSet<>();
 
 		ResultSet rs = st
@@ -405,6 +412,17 @@ public final class MySQLHandler {
 		}
 
 		return out;
+	}
+
+	public ResultSet getCrossrefTable() throws SQLException {
+		return st.executeQuery("SELECT * FROM Cross_Refs");
+	}
+
+	public ResultSet getCrossrefsIncident(int sequence) throws SQLException {
+		return st.executeQuery("SELECT * FROM Cross_Refs WHERE ourSeq_Ref="
+				+ sequence
+				+ " UNION ALL SELECT * FROM Cross_Refs WHERE otherSeq_Ref="
+				+ sequence + ";");
 	}
 
 }

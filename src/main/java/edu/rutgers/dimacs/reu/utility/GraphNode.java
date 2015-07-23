@@ -18,6 +18,12 @@ public class GraphNode implements Comparable<GraphNode> {
 		this.incidentEdges = new HashSet<>();
 	}
 	
+	public GraphNode(GraphNode that, HashSet<Edge> edges) {
+		super();
+		this.id = that.id;
+		this.incidentEdges = edges;
+	}
+	
 	@Override
 	public String toString() {
 		return id;
@@ -31,6 +37,7 @@ public class GraphNode implements Comparable<GraphNode> {
 	public int compareTo(GraphNode that) {
 		return this.id.compareTo(that.id);
 	}
+	
 	@Override
 	public boolean equals(Object o) {
 		return o instanceof GraphNode && ((GraphNode)o).id.equals(this.id);

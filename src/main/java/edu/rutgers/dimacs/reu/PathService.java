@@ -37,91 +37,72 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 
 import edu.rutgers.dimacs.reu.utility.*;
-import edu.rutgers.dimacs.reu.utility.MySQLHandler.CrossrefTypes;
+import edu.rutgers.dimacs.reu.utility.DataStore.EdgeType;
 import static javax.ejb.LockType.READ;
 
 @Path("pathAddition")
 @Singleton
 @Lock(READ)
 public class PathService {
-	LoadingCache<Integer, Collection<Integer>> cache;
+	// LoadingCache<Integer, Collection<Integer>> cache;
 	private static final Logger LOGGER = Logger.getLogger(PathService.class
 			.getName());
 
 	public PathService() throws SQLException, NamingException {
-		MySQLHandler.setup();
-		cache = CacheBuilder.newBuilder().maximumSize(300000)
-				.expireAfterAccess(600, TimeUnit.MINUTES)
-				.build(new CacheLoader<Integer, Collection<Integer>>() {
-					@Override
-					public Collection<Integer> load(Integer node) throws SQLException {
-						Collection<Integer> neighbors_ints = MySQLHandler
-								.getCrossrefsLeaving(node, CrossrefTypes.NORMALONLY);
-						Collection<Integer> entering_ints = MySQLHandler
-								.getCrossrefsInto(node, CrossrefTypes.NORMALONLY);
-						neighbors_ints.addAll(entering_ints);
-						return neighbors_ints;
-					}
-				});
-		//cache.putAll(MySQLHandler.getAllCrossrefs()); //loads the entire graph, takes 2.5s
+		// cache.putAll(MySQLHandler.getAllCrossrefs()); //loads the entire
+		// graph, takes 2.5s
 		System.out.println("Path Service Instanciated");
 	}
 
 	@GET
 	@Path("{newNode}/{pathTo}/{includeNeighborhoods}")
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response getAddition(@PathParam("newNode") String newNode,
-			@PathParam("pathTo") String existing, @PathParam("includeNeighborhoods") @DefaultValue("false") boolean includeNeighborhoods) {
+	public Response getAddition(
+			@PathParam("newNode") String newNode,
+			@PathParam("pathTo") String existing,
+			@PathParam("includeNeighborhoods") @DefaultValue("false") boolean includeNeighborhoods) {
 		try {
-			
+
 			long timeStart;
-			
-			if(cache.size() < 10000) {
-				timeStart = System.nanoTime();
-				cache.putAll(MySQLHandler.getAllCrossrefs());
-				LOGGER.info("Refilling cache took "
-						+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
-						+ "ms");
-			}
-			
-			//log
+
+			// log
 			LOGGER.info("query: " + newNode + "/" + existing);
 			timeStart = System.nanoTime();
-			
-			//run
+
+			// run
 			ArrayList<ArrayList<Integer>> paths = getShortestPath(newNode,
 					existing);
-			
-			//log
+
+			// log
 			LOGGER.info("getShortestPath took "
-				+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
-				+ "ms");
+					+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
+					+ "ms");
 			timeStart = System.nanoTime();
-			
-			//run
+
+			// run
 			Graph graph = buildGraph(neighborhoods(paths, includeNeighborhoods));
 
-			//log
+			// log
 			LOGGER.info("building graph took "
-				+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
-				+ "ms");
+					+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
+					+ "ms");
 			timeStart = System.nanoTime();
-			
-			//run
+
+			// run
 			HashSet<Integer> paths_set = new HashSet<Integer>();
 			for (ArrayList<Integer> path : paths) {
 				paths_set.addAll(path);
 			}
 			StreamingOutput stream = finalJSON(graph, paths_set);
 			return Response.ok(stream).build();
-		
+
 		} catch (ExecutionException e) {
 			LOGGER.severe("cache failure on query " + "");
 			return Response.serverError().build();
-		} catch (SQLException e) {
-			LOGGER.severe("labeling failure (sql)");
-			return Response.serverError().build();
-		}
+		} /*
+		 * catch (SQLException e) { LOGGER.severe("labeling failure (sql)");
+		 * return Response.serverError().build(); }
+		 */
 	}
 
 	public Graph buildGraph(HashSet<Integer> ints) throws ExecutionException {
@@ -131,12 +112,14 @@ public class PathService {
 		for (int n : ints) {
 			graph.addNode(Integer.toString(n));
 		}
+		
+		Map<Integer, Collection<Integer>> refs = DataStore.getInstance().getCrossrefsWithin(ints);
 
 		// for each node, get the neighborhood
 		// and if the neighbor_gn exists, add the edge
 		for (GraphNode gn : graph.getNodeSet()) {
 			int gn_int = Integer.parseInt(gn.toString());
-			for (int neighbor_int : cache.get(gn_int)) {
+			for (int neighbor_int : refs.get(gn_int)) {
 				String neighbor_str = Integer.toString(neighbor_int);
 				GraphNode neighbor_gn = graph.getNode(neighbor_str);
 				if (neighbor_gn != null) {
@@ -148,11 +131,12 @@ public class PathService {
 		return graph;
 	}
 
-	public static void writeEdgesJSON(Graph graph, Writer writer) throws IOException {
+	public static void writeEdgesJSON(Graph graph, Writer writer)
+			throws IOException {
 		boolean first = true;
 		TreeSet<Edge> orderedEdges = new TreeSet<>(graph.getEdgeSet());
 		for (Edge edge : orderedEdges) {
-			if(first) {
+			if (first) {
 				first = false;
 				writer.write("\n{" + edge.toString() + "}");
 			} else {
@@ -161,18 +145,18 @@ public class PathService {
 		}
 	}
 
-	public StreamingOutput finalJSON(final Graph graph, final HashSet<Integer> path_ints) {
+	public StreamingOutput finalJSON(final Graph graph,
+			final HashSet<Integer> path_ints) {
 		final long timeStart = System.nanoTime();
 		StreamingOutput stream = new StreamingOutput() {
 			@Override
 			public void write(OutputStream os) throws IOException,
 					WebApplicationException {
-				Writer writer = new BufferedWriter(new OutputStreamWriter(
-						os));
+				Writer writer = new BufferedWriter(new OutputStreamWriter(os));
 				writer.write("{\n\"nodes\":[\n");
 				try {
 					nodesJSON(graph, path_ints, writer);
-				} catch (SQLException e) {
+				} catch (SQLException | NamingException e) {
 					throw new IOException(e);
 				}
 				writer.write("], \"links\":[\n");
@@ -215,7 +199,7 @@ public class PathService {
 				toRemove.add(n);
 			}
 		}
-		for(Integer n : toRemove) {
+		for (Integer n : toRemove) {
 			dest_ints.remove(n);
 		}
 
@@ -244,7 +228,8 @@ public class PathService {
 			Integer curr_int = queue.remove();
 			// System.out.println("curr_int: " + curr_int);
 
-			for (int n : cache.get(curr_int)) {
+			for (int n : DataStore.getInstance().getAdjacentUndirected(
+					curr_int, EdgeType.NORMAL)) {
 				if (visited.contains(n)) {
 					continue;
 				}
@@ -259,7 +244,7 @@ public class PathService {
 				}
 			}
 		}
-		
+
 		if (dests_visited.size() == 0) {
 			ArrayList<Integer> path_ints = new ArrayList<Integer>();
 			path_ints.add(source_int);
@@ -283,38 +268,44 @@ public class PathService {
 	}
 
 	public HashSet<Integer> neighborhoods(
-			ArrayList<ArrayList<Integer>> paths_ints, boolean addNeighbors) throws ExecutionException {
+			ArrayList<ArrayList<Integer>> paths_ints, boolean addNeighbors)
+			throws ExecutionException {
 		HashSet<Integer> all_ints = new HashSet<Integer>();
 
 		for (ArrayList<Integer> path : paths_ints) {
 			for (int n : path) {
 				all_ints.add(n);
-				if(addNeighbors) all_ints.addAll(cache.get(n));
+				if (addNeighbors)
+					all_ints.addAll(DataStore.getInstance()
+							.getAdjacentUndirected(n, EdgeType.NORMAL));
 			}
 		}
 
 		return all_ints;
 	}
 
-	public void nodesJSON(Graph graph, HashSet<Integer> path_ints, Writer writer) throws SQLException, IOException {
+	public void nodesJSON(Graph graph, HashSet<Integer> path_ints, Writer writer)
+			throws SQLException, IOException, NamingException {
 		if (path_ints.size() == 0) {
 			return;
 		}
 
 		TreeSet<GraphNode> nodes = new TreeSet<>(graph.getNodeSet());
 		LinkedList<Integer> wordNodes = new LinkedList<>();
-		for(GraphNode gn : nodes) {
+		for (GraphNode gn : nodes) {
 			wordNodes.add(Integer.parseInt(gn.id));
 		}
-		Map<Integer, Map<String, Integer>> allWords = MySQLHandler.getWordMultiSet(wordNodes);
-		Map<Integer, String> descriptions = MySQLHandler.getDescription(path_ints);
+		Map<Integer, Map<String, Integer>> allWords = DataStore.getInstance()
+				.getWordMultiSet(wordNodes);
+		Map<Integer, String> descriptions = DataStore.getInstance()
+				.getDescription(path_ints);
 
 		boolean first = true;
 		for (GraphNode gn : nodes) {
 			int gn_int = Integer.parseInt(gn.toString());
 			ArrayList<String> selectedWords = new ArrayList<String>();
 			Map<String, Integer> nodeWords = allWords.get(gn_int);
-			//nodeWords = sortByComparator(nodeWords);
+			// nodeWords = sortByComparator(nodeWords);
 
 			int totalFreq = 0;
 			for (String word : nodeWords.keySet()) {
@@ -324,15 +315,15 @@ public class PathService {
 				int wordFreq = nodeWords.get(word);
 				if ((double) wordFreq / totalFreq > 0.25) {
 					selectedWords.add(word);
-				} //after sorting, check all n elements for this property -_-
+				} // after sorting, check all n elements for this property -_-
 			}
-			
+
 			String label = "";
 			for (String selected : selectedWords) {
 				label = label + "-" + selected;
 			}
 			gn.id += label;
-			if(first) {
+			if (first) {
 				first = false;
 			} else {
 				writer.write(",");
@@ -350,26 +341,25 @@ public class PathService {
 			}
 		}
 	}
-	
-	/*private Map<String, Integer> sortByComparator(Map<String, Integer> unsortMap) {
 
-		List<Entry<String, Integer>> list = new LinkedList<Entry<String, Integer>>(unsortMap.entrySet());
-
-		// Sorting the list based on values
-		Collections.sort(list, new Comparator<Entry<String, Integer>>() {
-			public int compare(Entry<String, Integer> o1, Entry<String, Integer> o2) {
-				return o2.getValue().compareTo(o1.getValue());
-			}
-		});
-
-		// Maintaining insertion order with the help of LinkedList
-		Map<String, Integer> sortedMap = new LinkedHashMap<String, Integer>();
-		for (Entry<String, Integer> entry : list) {
-			sortedMap.put(entry.getKey(), entry.getValue());
-		}
-
-		return sortedMap;
-	}*/
-
+	/*
+	 * private Map<String, Integer> sortByComparator(Map<String, Integer>
+	 * unsortMap) {
+	 * 
+	 * List<Entry<String, Integer>> list = new LinkedList<Entry<String,
+	 * Integer>>(unsortMap.entrySet());
+	 * 
+	 * // Sorting the list based on values Collections.sort(list, new
+	 * Comparator<Entry<String, Integer>>() { public int compare(Entry<String,
+	 * Integer> o1, Entry<String, Integer> o2) { return
+	 * o2.getValue().compareTo(o1.getValue()); } });
+	 * 
+	 * // Maintaining insertion order with the help of LinkedList Map<String,
+	 * Integer> sortedMap = new LinkedHashMap<String, Integer>(); for
+	 * (Entry<String, Integer> entry : list) { sortedMap.put(entry.getKey(),
+	 * entry.getValue()); }
+	 * 
+	 * return sortedMap; }
+	 */
 
 }

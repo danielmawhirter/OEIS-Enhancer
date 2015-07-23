@@ -18,6 +18,12 @@ public class Graph {
 		edges = new HashMap<>();
 		this.directed = directed;
 	}
+	
+	public Graph(Graph that) {
+		this.id = that.id;
+		this.directed = that.directed;
+		
+	}
 
 	public GraphNode addNode(String id) {
 		GraphNode newNode = new GraphNode(id);
