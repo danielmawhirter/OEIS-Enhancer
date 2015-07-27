@@ -22,8 +22,10 @@ import java.util.logging.Logger;
 import javax.ejb.Lock;
 import javax.ejb.Singleton;
 import javax.naming.NamingException;
+import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
@@ -32,9 +34,13 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
 import javax.ws.rs.PathParam;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.Iterables;
 
 import edu.rutgers.dimacs.reu.utility.*;
 import edu.rutgers.dimacs.reu.utility.DataStore.EdgeType;
@@ -54,15 +60,19 @@ public class PathService {
 		System.out.println("Path Service Instanciated");
 	}
 
-	@GET
-	@Path("{newNode}/{pathTo}/{includeNeighborhoods}")
+	@POST
+	//@Path("{newNode}/{pathTo}/{includeNeighborhoods}")
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response getAddition(
-			@PathParam("newNode") String newNode,
+	@Consumes(MediaType.APPLICATION_JSON)
+	public Response getAddition(String input
+			/*@PathParam("newNode") String newNode,
 			@PathParam("pathTo") String existing,
-			@PathParam("includeNeighborhoods") @DefaultValue("false") boolean includeNeighborhoods) {
+			@PathParam("includeNeighborhoods") @DefaultValue("false") boolean includeNeighborhoods*/) {
 		try {
-
+			JSONObject obj = new JSONObject(input);
+			String newNode = obj.getString("newNode");
+			String existing = obj.getString("existing");
+			boolean includeNeighborhoods = obj.getBoolean("includeNeighborhoods");
 			long timeStart;
 
 			// log
@@ -276,7 +286,7 @@ public class PathService {
 			for (int n : path) {
 				all_ints.add(n);
 				if (addNeighbors)
-					all_ints.addAll(DataStore.getInstance()
+					Iterables.addAll(all_ints,DataStore.getInstance()
 							.getAdjacentUndirected(n, EdgeType.NORMAL));
 			}
 		}

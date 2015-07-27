@@ -162,7 +162,7 @@ function hierarchyLayout() {
 			return;
 		}
 		// console.log(addLinks);
-		nodes = flatten(root);
+		// nodes = flatten(root);
 		mergeInLinks(addLinks);
 
 		link_elements = link_elements.data(links, function(d) {
@@ -175,6 +175,8 @@ function hierarchyLayout() {
 				.attr("stroke-width", strokeWidth);
 
 		force.nodes(nodes).links(links).start();
+		console.log("displaying " + nodes.length + " nodes and " + links.length
+				+ " links");
 	}
 
 	function tick() {
@@ -270,10 +272,13 @@ function hierarchyLayout() {
 		else
 			return nodeSize / currentZoomLevel;
 	}
-	
+
 	function strokeWidth(d) {
-		if(d.value && d.source.size && d.source.size > 1 && d.target.size && d.target.size > 1) { //
-			return Math.max(Math.pow(d.value / (d.source.size * d.target.size), 1/10) * 5.0, 1.5) / currentZoomLevel + "px";
+		if (d.value && d.source.size && d.source.size > 1 && d.target.size
+				&& d.target.size > 1) { //
+			return Math.max(Math.pow(d.value / (d.source.size * d.target.size),
+					1 / 10) * 5.0, 1.5)
+					/ currentZoomLevel + "px";
 		} else {
 			return 1.5 / currentZoomLevel + "px"
 		}
@@ -328,20 +333,19 @@ function hierarchyLayout() {
 			n.active = false;
 			n.children.forEach(function(d) {
 				d.active = true;
-				d.x = n.x + 40 * (Math.random() - 0.5);
-				d.y = n.y + 40 * (Math.random() - 0.5);
+				d.x = n.x + 40 * Math.log(n.children.length)
+						* (Math.random() - 0.5);
+				d.y = n.y + 40 * Math.log(n.children.length)
+						* (Math.random() - 0.5);
 				if (n != root)
 					d.color = n.color;
 				interests.push(d.name);
 			});
-			d3.json("incidentEdges/getToken")
-			.header("Content-Type", "application/json")
-			.post(JSON.stringify({query: interests}), function(error, data) {
-			    if(error) throw error;
-				console.log(data);
-				d3.json("incidentEdges/withToken/" + selectedGraph
-						+ "/" + data.token, updateLinks);
-			});
+			d3.json("incidentEdges/getIncident").header("Content-Type",
+					"application/json").post(JSON.stringify({
+				graph : selectedGraph,
+				query : interests
+			}), updateLinks);
 			update();
 		} else {
 			if (isNaN(n.name.split("p")[0]))
@@ -446,7 +450,7 @@ function pathLayout() {
 					return d.forward ? "url(#end-arrow)" : "";
 				}).style('marker-start', function(d) {
 					return d.reverse ? "url(#start-arrow)" : "";
-					});
+				});
 
 		node_elements = node_elements.data(nodes, function(d) {
 			return d.name;
@@ -478,15 +482,16 @@ function pathLayout() {
 		 * d.target.y; });
 		 */
 		link_elements.attr('d', function(d) {
-			/*var deltaX = d.target.x - d.source.x, deltaY = d.target.y -
-			d.source.y, 
-			dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY),
-			normX = deltaX / dist, normY = deltaY / dist, sourcePadding =
-			d.left ? 17 : 12, targetPadding = d.right ? 17 : 12, sourceX =
-			d.source.x + (sourcePadding * normX), sourceY = d.source.y +
-			(sourcePadding * normY), targetX = d.target.x - (targetPadding *
-			normX), targetY = d.target.y - (targetPadding * normY);*/
-			
+			/*
+			 * var deltaX = d.target.x - d.source.x, deltaY = d.target.y -
+			 * d.source.y, dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY),
+			 * normX = deltaX / dist, normY = deltaY / dist, sourcePadding =
+			 * d.left ? 17 : 12, targetPadding = d.right ? 17 : 12, sourceX =
+			 * d.source.x + (sourcePadding * normX), sourceY = d.source.y +
+			 * (sourcePadding * normY), targetX = d.target.x - (targetPadding *
+			 * normX), targetY = d.target.y - (targetPadding * normY);
+			 */
+
 			return 'M' + d.source.x + ',' + d.source.y + 'L' + d.target.x + ','
 					+ d.target.y;
 		});
@@ -521,7 +526,7 @@ function pathLayout() {
 	}
 
 	function allText(d) {
-		if(d.description && showDescriptionLabels) {
+		if (d.description && showDescriptionLabels) {
 			return d.description;
 		} else {
 			return d.name;
@@ -530,7 +535,7 @@ function pathLayout() {
 
 	function filteredText(d) {
 		if (d.path || d.name.indexOf("-") != -1) {
-			if(d.description && showDescriptionLabels) {
+			if (d.description && showDescriptionLabels) {
 				return d.description;
 			} else {
 				return d.name;
@@ -670,79 +675,88 @@ function addToPathView() {
 	var addedSequence = textField.value;
 	textField.value = "";
 	// console.log(nodes);
-	queryString = "pathAddition/" + addedSequence + "/";
+
+	// queryString = "pathAddition/" + addedSequence + "/";
 	if (nodes.length == 0)
-		queryString = queryString.concat("NONE");
+		existingString = "NONE";
 	else {
+		existingString = "";
 		first = true;
 		for (i = 0; i < nodes.length; i++) {
 			if (nodes[i].path) {
 				if (first) {
 					first = false;
 				} else {
-					queryString = queryString.concat("-");
+					existingString = existingString.concat("-");
 				}
-				queryString = queryString.concat(nodes[i].name.split("-")[0]);
+				existingString = existingString
+						.concat(nodes[i].name.split("-")[0]);
 			}
 		}
 	}
-	if(showPathNeighborhoods) {
-		queryString = queryString.concat("/true");
-	}
-	else {
-		queryString = queryString.concat("/false");
-	}
-	console.log(queryString);
-	d3.json(queryString, function(error, json) {
-		if (error) {
-			alert("Sequence " + textField.value + " not found");
-			console.log(error);
-			return;
-		}
-		force.stop();
-		if (json.nodes) {
-			var newNodes = [];
-			while (nodes.length > 0 && json.nodes.length > 0) {
-				var name_node = nodes[0].name.split("-")[0];
-				var name_json = json.nodes[0].name.split("-")[0];
+	/*
+	 * if (showPathNeighborhoods) { queryString = queryString.concat("/true"); }
+	 * else { queryString = queryString.concat("/false"); }
+	 * console.log(queryString);
+	 */
+	d3.json("pathAddition").header("Content-Type", "application/json").post(
+			JSON.stringify({
+				newNode : addedSequence,
+				existing : existingString,
+				includeNeighborhoods : showPathNeighborhoods
+			}),
+			function(error, json) {
+				if (error) {
+					alert("Sequence " + textField.value + " not found");
+					console.log(error);
+					return;
+				}
+				force.stop();
+				if (json.nodes) {
+					var newNodes = [];
+					while (nodes.length > 0 && json.nodes.length > 0) {
+						var name_node = nodes[0].name.split("-")[0];
+						var name_json = json.nodes[0].name.split("-")[0];
 
-				if (name_node == name_json) {
-					var current = nodes.shift();
-					var other = json.nodes.shift();
-					current.path = current.path || other.path;
-					current.description = current.description || other.description;
-					newNodes.push(current);
-				} else if (name_node < name_json) {
-					newNodes.push(nodes.shift());
-				} else {
-					var temp = json.nodes.shift();
-					temp.x = window.innerWidth / 2;
-					temp.y = window.innerHeight / 2;
-					newNodes.push(temp);
+						if (name_node == name_json) {
+							var current = nodes.shift();
+							var other = json.nodes.shift();
+							current.path = current.path || other.path;
+							current.description = current.description
+									|| other.description;
+							newNodes.push(current);
+						} else if (name_node < name_json) {
+							newNodes.push(nodes.shift());
+						} else {
+							var temp = json.nodes.shift();
+							temp.x = window.innerWidth / 2;
+							temp.y = window.innerHeight / 2;
+							newNodes.push(temp);
+						}
+					}
+					if (nodes.length == 0) {
+						newNodes = newNodes.concat(json.nodes);
+					}
+					if (json.nodes.length == 0) {
+						newNodes = newNodes.concat(nodes);
+					}
+					nodes = newNodes;
 				}
-			}
-			if (nodes.length == 0) {
-				newNodes = newNodes.concat(json.nodes);
-			}
-			if (json.nodes.length == 0) {
-				newNodes = newNodes.concat(nodes);
-			}
-			nodes = newNodes;
-		}
-		if (json.links) {
-			mergeInLinks(json.links);
-		}
-		primaryNodes.push(addedSequence);
-		additionMade = true;
-		additionPending = false;
-		force.resume();
-	});
+				if (json.links) {
+					mergeInLinks(json.links);
+				}
+				primaryNodes.push(addedSequence);
+				additionMade = true;
+				additionPending = false;
+				force.resume();
+			});
 	// add to global nodes/links lists, set boolean flag, call force.resume
 }
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // End Add To Path View
 
 // merge arrays of links sorted lexically by id
+// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 function mergeInLinks(addLinks) {
 	var newLinks = [];
 	var nodeLookup = [];
@@ -778,3 +792,5 @@ function mergeInLinks(addLinks) {
 	}
 	links = newLinks;
 }
+// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+

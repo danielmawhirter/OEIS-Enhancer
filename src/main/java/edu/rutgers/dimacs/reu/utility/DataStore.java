@@ -6,15 +6,14 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-//import java.util.concurrent.TimeUnit;
-
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import javax.ejb.Singleton;
@@ -25,20 +24,21 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.UnmodifiableIterator;
 
 @Singleton
 public class DataStore {
 
-	// public static final ImmutableMap<Integer, ImmutableSet<Integer>> adj =
-	// null;
 	private static final Logger LOGGER = Logger.getLogger(DataStore.class
 			.getName());
-
+	private final ClassLoader cl;
 	private final LoadingCache<Integer, ImmutableSet<Edge>> crossrefCache;
+	private final LoadingCache<String, HierarchyTree> treeCache;
 
 	private static DataStore instance = new DataStore();
 
 	private DataStore() {
+		cl = this.getClass().getClassLoader();
 		crossrefCache = CacheBuilder.newBuilder().maximumWeight(10000000)
 		// .expireAfterAccess(600, TimeUnit.MINUTES)
 				.weigher(new Weigher<Integer, ImmutableSet<Edge>>() {
@@ -52,7 +52,8 @@ public class DataStore {
 							throws SQLException, NamingException {
 						ImmutableSet.Builder<Edge> setBuilder = ImmutableSet
 								.<Edge> builder();
-						ResultSet rs = MySQLHandler.getInstance().getCrossrefsIncident(node);
+						ResultSet rs = MySQLHandler.getInstance()
+								.getCrossrefsIncident(node);
 						while (rs.next()) {
 							EdgeType type;
 							if (rs.getInt(3) == 1) {
@@ -81,18 +82,31 @@ public class DataStore {
 		} catch (NumberFormatException | IOException e) {
 			LOGGER.warning("Failed to add edges to cache");
 		}
+		treeCache = CacheBuilder.newBuilder().maximumSize(10)
+				.expireAfterAccess(5, TimeUnit.MINUTES)
+				.build(new CacheLoader<String, HierarchyTree>() {
+					@Override
+					public HierarchyTree load(String graph) throws IOException {
+						InputStream tree_is = cl.getResourceAsStream("graphs/"
+								+ graph + "/tree.txt");
+						return new HierarchyTree(tree_is);
+					}
+				});
 	}
 
-	private DataStore fillCrossrefCache() throws NumberFormatException, IOException {
-		//ResultSet rs = MySQLHandler.getInstance().getCrossrefTable();
+	private DataStore fillCrossrefCache() throws NumberFormatException,
+			IOException {
+		// ResultSet rs = MySQLHandler.getInstance().getCrossrefTable();
 		Map<Integer, LinkedList<Edge>> map = new HashMap<>();
-		InputStream is = DataStore.class.getClassLoader().getResourceAsStream("Cross_Refs.csv");
+		InputStream is = DataStore.class.getClassLoader().getResourceAsStream(
+				"Cross_Refs.csv");
 		BufferedReader br = new BufferedReader(new InputStreamReader(is));
 		String line;
 		while (null != (line = br.readLine())) {
 			String[] split = line.split(",");
-			int one = Integer.parseInt(split[0]), two = Integer.parseInt(split[1]),
-					three = Integer.parseInt(split[2]), four = Integer.parseInt(split[3]);
+			int one = Integer.parseInt(split[0]), two = Integer
+					.parseInt(split[1]), three = Integer.parseInt(split[2]), four = Integer
+					.parseInt(split[3]);
 			EdgeType type;
 			if (three == 1) {
 				type = EdgeType.ADJACENT;
@@ -101,8 +115,7 @@ public class DataStore {
 			} else {
 				type = EdgeType.NORMAL;
 			}
-			LinkedList<Edge> oneAdj = map.get(one), twoAdj = map
-					.get(two);
+			LinkedList<Edge> oneAdj = map.get(one), twoAdj = map.get(two);
 			if (null == oneAdj) {
 				oneAdj = new LinkedList<Edge>();
 				map.put(one, oneAdj);
@@ -130,26 +143,59 @@ public class DataStore {
 		return instance;
 	}
 
-	/*public ImmutableSet<Edge> get(Integer key) throws ExecutionException {
-		return cache.get(key);
-	}*/
-	
-	public Set<Integer> getAdjacentUndirected(int node, EdgeType type) throws ExecutionException {
-		HashSet<Integer> adjacents = new HashSet<>();
+	public Iterable<Integer> getAdjacentUndirected(int node, final EdgeType type)
+			throws ExecutionException {
 		ImmutableSet<Edge> edges = crossrefCache.get(node);
-		for(Edge e : edges) {
-			if(e.getType() == type) {
-				adjacents.add(e.getDest());
+		/*
+		 * HashSet<Integer> adjacents = new HashSet<>(); for(Edge e : edges) {
+		 * if(e.getType() == type) { adjacents.add(e.getDest()); } } return
+		 * adjacents;
+		 */
+
+		final UnmodifiableIterator<Edge> it = edges.iterator();
+		return new Iterable<Integer>() {
+			private Edge current = it.next();
+
+			@Override
+			public Iterator<Integer> iterator() {
+				return new Iterator<Integer>() {
+					@Override
+					public boolean hasNext() {
+						if (null == current) {
+							return false;
+						}
+						while (current.getType() != type) {
+							if (!it.hasNext()) {
+								return false;
+							}
+							current = it.next();
+						}
+						return true;
+					}
+
+					@Override
+					public Integer next() {
+						Integer select = current.getDest();
+						if (it.hasNext()) {
+							current = it.next();
+						} else {
+							current = null;
+						}
+						return select;
+					}
+				};
 			}
-		}
-		return adjacents;
+
+		};
+
 	}
-	
-	public Set<Integer> getAdjacentUndirected(int node) throws ExecutionException {
+
+	public Iterable<Integer> getAdjacentUndirected(int node)
+			throws ExecutionException {
 		return getAdjacentUndirected(node, EdgeType.NORMAL);
 	}
 
-	private static final class Edge {
+	private static class Edge {
 		public Edge(int dest, EdgeType type, boolean forward) {
 			super();
 			this.forward = forward;
@@ -182,11 +228,11 @@ public class DataStore {
 	public Map<Integer, Collection<Integer>> getCrossrefsWithin(
 			Set<Integer> nodes, EdgeType type) throws ExecutionException {
 		Map<Integer, Collection<Integer>> map = new HashMap<>();
-		for(Integer i : nodes) {
-			LinkedList<Integer> list = new LinkedList<Integer>(); 
+		for (Integer i : nodes) {
+			LinkedList<Integer> list = new LinkedList<Integer>();
 			ImmutableSet<Edge> adj = crossrefCache.get(i);
-			for(Edge j : adj) {
-				if(j.isForward() && j.getType() == type) {
+			for (Edge j : adj) {
+				if (j.isForward() && j.getType() == type) {
 					list.add(j.getDest());
 				}
 			}
@@ -194,22 +240,29 @@ public class DataStore {
 		}
 		return map;
 	}
-	
+
 	public Map<Integer, Collection<Integer>> getCrossrefsWithin(
 			Set<Integer> nodes) throws ExecutionException {
 		return getCrossrefsWithin(nodes, EdgeType.NORMAL);
 	}
 
-	public Collection<? extends Integer> getSequencesWithKeyword(String word) throws NamingException, SQLException {
+	public Collection<? extends Integer> getSequencesWithKeyword(String word)
+			throws NamingException, SQLException {
 		return MySQLHandler.getInstance().getSequencesWithKeyword(word);
 	}
 
 	public Map<Integer, Map<String, Integer>> getWordMultiSet(
-			LinkedList<Integer> sequenceIds) throws SQLException, NamingException {
+			LinkedList<Integer> sequenceIds) throws SQLException,
+			NamingException {
 		return MySQLHandler.getInstance().getWordMultiSet(sequenceIds);
 	}
 
-	public Map<Integer, String> getDescription(Iterable<Integer> path_ints) throws SQLException, NamingException {
+	public Map<Integer, String> getDescription(Iterable<Integer> path_ints)
+			throws SQLException, NamingException {
 		return MySQLHandler.getInstance().getDescription(path_ints);
+	}
+
+	public HierarchyTree getTree(String name) throws ExecutionException {
+		return treeCache.get(name);
 	}
 }
