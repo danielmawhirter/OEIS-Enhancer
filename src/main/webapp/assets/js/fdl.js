@@ -425,6 +425,35 @@ function pathLayout() {
 		nodeSize /= sizeMultiplier;
 		refreshAfterZoom();
 	};
+	document.getElementById("addNeighborhoodsButton").onclick = function() {
+		if (nodes.length == 0)
+			existingString = "NONE";
+		else {
+			existingString = "";
+			first = true;
+			for (i = 0; i < nodes.length; i++) {
+				if (nodes[i].path) {
+					if (first) {
+						first = false;
+					} else {
+						existingString = existingString.concat("-");
+					}
+					existingString = existingString
+							.concat(nodes[i].name.split("-")[0]);
+				}
+			}
+		}
+		for(i = 0; i < nodes.length; i++) {
+			if(nodes[i].path) {
+				nodes[i].fixed = true;
+			}
+		}
+		d3.json("neighborhoods").header("Content-Type", "application/json").post(
+				JSON.stringify({
+					existing : existingString,
+					egonets : false
+				}), mergeNodesLinks);
+	};
 
 	svg.append('defs').append('svg:marker').attr('id', 'end-arrow').attr(
 			'viewBox', '0 -5 10 10').attr('refX', 6).attr('markerWidth', 3)
@@ -694,62 +723,13 @@ function addToPathView() {
 			}
 		}
 	}
-	/*
-	 * if (showPathNeighborhoods) { queryString = queryString.concat("/true"); }
-	 * else { queryString = queryString.concat("/false"); }
-	 * console.log(queryString);
-	 */
+	primaryNodes.push(addedSequence);
 	d3.json("pathAddition").header("Content-Type", "application/json").post(
 			JSON.stringify({
 				newNode : addedSequence,
 				existing : existingString,
 				includeNeighborhoods : showPathNeighborhoods
-			}),
-			function(error, json) {
-				if (error) {
-					alert("Sequence " + textField.value + " not found");
-					console.log(error);
-					return;
-				}
-				force.stop();
-				if (json.nodes) {
-					var newNodes = [];
-					while (nodes.length > 0 && json.nodes.length > 0) {
-						var name_node = nodes[0].name.split("-")[0];
-						var name_json = json.nodes[0].name.split("-")[0];
-
-						if (name_node == name_json) {
-							var current = nodes.shift();
-							var other = json.nodes.shift();
-							current.path = current.path || other.path;
-							current.description = current.description
-									|| other.description;
-							newNodes.push(current);
-						} else if (name_node < name_json) {
-							newNodes.push(nodes.shift());
-						} else {
-							var temp = json.nodes.shift();
-							temp.x = window.innerWidth / 2;
-							temp.y = window.innerHeight / 2;
-							newNodes.push(temp);
-						}
-					}
-					if (nodes.length == 0) {
-						newNodes = newNodes.concat(json.nodes);
-					}
-					if (json.nodes.length == 0) {
-						newNodes = newNodes.concat(nodes);
-					}
-					nodes = newNodes;
-				}
-				if (json.links) {
-					mergeInLinks(json.links);
-				}
-				primaryNodes.push(addedSequence);
-				additionMade = true;
-				additionPending = false;
-				force.resume();
-			});
+			}), mergeNodesLinks);
 	// add to global nodes/links lists, set boolean flag, call force.resume
 }
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -794,3 +774,47 @@ function mergeInLinks(addLinks) {
 }
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+function mergeNodesLinks(error, json) {
+	if (error) {
+		alert("Sequence " + textField.value + " not found");
+		console.log(error);
+		return;
+	}
+	//console.log(json);
+	force.stop();
+	if (json.nodes) {
+		var newNodes = [];
+		while (nodes.length > 0 && json.nodes.length > 0) {
+			var name_node = nodes[0].name.split("-")[0];
+			var name_json = json.nodes[0].name.split("-")[0];
+
+			if (name_node == name_json) {
+				var current = nodes.shift();
+				var other = json.nodes.shift();
+				current.path = current.path || other.path;
+				current.description = current.description || other.description;
+				newNodes.push(current);
+			} else if (name_node < name_json) {
+				newNodes.push(nodes.shift());
+			} else {
+				var temp = json.nodes.shift();
+				temp.x = window.innerWidth / 2;
+				temp.y = window.innerHeight / 2;
+				newNodes.push(temp);
+			}
+		}
+		if (nodes.length == 0) {
+			newNodes = newNodes.concat(json.nodes);
+		}
+		if (json.nodes.length == 0) {
+			newNodes = newNodes.concat(nodes);
+		}
+		nodes = newNodes;
+	}
+	if (json.links) {
+		mergeInLinks(json.links);
+	}
+	additionMade = true;
+	additionPending = false;
+	force.resume();
+}

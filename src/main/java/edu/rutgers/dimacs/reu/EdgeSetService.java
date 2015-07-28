@@ -183,21 +183,21 @@ public class EdgeSetService {
 	}
 
 	private static class EdgeCounter {
-		private TreeMap<String, Edge> edges;
+		private TreeMap<String, LexicalEdge> edges;
 
 		public EdgeCounter() {
 			edges = new TreeMap<>();
 		}
 
 		public void add(String one, String two) {
-			String id = Edge.Id(one, two);
-			Edge currentEdge = edges.get(id);
+			String id = LexicalEdge.Id(one, two);
+			LexicalEdge currentEdge = edges.get(id);
 			if (null == currentEdge) {
-				currentEdge = new Edge(one, two);
+				currentEdge = new LexicalEdge(one, two);
 				edges.put(id, currentEdge);
 			} else {
-				currentEdge.forward |= Edge.forward(one, two);
-				currentEdge.reverse |= !Edge.forward(one, two);
+				currentEdge.forward |= LexicalEdge.forward(one, two);
+				currentEdge.reverse |= !LexicalEdge.forward(one, two);
 			}
 			currentEdge.count++;
 		}
@@ -213,7 +213,7 @@ public class EdgeSetService {
 					writer.write("[");
 					boolean first = true;
 					for (String s : edges.keySet()) {
-						Edge e = edges.get(s);
+						LexicalEdge e = edges.get(s);
 						if (first) {
 							first = false;
 							writer.write(e.toString());
@@ -229,12 +229,12 @@ public class EdgeSetService {
 			return stream;
 		}
 
-		private static class Edge {
+		private static class LexicalEdge {
 			String src, dest;
 			boolean forward, reverse;
 			Integer count = 0;
 
-			public Edge(String one, String two) {
+			public LexicalEdge(String one, String two) {
 				if (one.compareTo(two) < 0) {
 					this.src = one;
 					this.dest = two;

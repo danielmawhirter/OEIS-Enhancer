@@ -143,19 +143,13 @@ public class DataStore {
 		return instance;
 	}
 
-	public Iterable<Integer> getAdjacentUndirected(int node, final EdgeType type)
-			throws ExecutionException {
+	public Iterable<Integer> getAdjacentUndirected(int node,
+			final EdgeTypeGroup typeGroup) throws ExecutionException {
 		ImmutableSet<Edge> edges = crossrefCache.get(node);
-		/*
-		 * HashSet<Integer> adjacents = new HashSet<>(); for(Edge e : edges) {
-		 * if(e.getType() == type) { adjacents.add(e.getDest()); } } return
-		 * adjacents;
-		 */
 
 		final UnmodifiableIterator<Edge> it = edges.iterator();
 		return new Iterable<Integer>() {
 			private Edge current = it.next();
-
 			@Override
 			public Iterator<Integer> iterator() {
 				return new Iterator<Integer>() {
@@ -164,7 +158,7 @@ public class DataStore {
 						if (null == current) {
 							return false;
 						}
-						while (current.getType() != type) {
+						while (!typeGroup.compatible(current.getType())) {
 							if (!it.hasNext()) {
 								return false;
 							}
@@ -192,7 +186,7 @@ public class DataStore {
 
 	public Iterable<Integer> getAdjacentUndirected(int node)
 			throws ExecutionException {
-		return getAdjacentUndirected(node, EdgeType.NORMAL);
+		return getAdjacentUndirected(node, EdgeTypeGroup.NORMALONLY);
 	}
 
 	private static class Edge {
@@ -222,7 +216,32 @@ public class DataStore {
 	}
 
 	public static enum EdgeType {
-		NORMAL, CONTEXT, ADJACENT;
+		NORMAL(true, false, false), CONTEXT(false, true, false), ADJACENT(
+				false, false, true);
+		public final boolean normal, context, adjacent;
+
+		private EdgeType(boolean normal, boolean context, boolean adjacent) {
+			this.normal = normal;
+			this.context = context;
+			this.adjacent = adjacent;
+		}
+	}
+
+	public static enum EdgeTypeGroup {
+		ALL(true, true, true), CONTEXTANDNORMAL(true, true, false), NORMALONLY(
+				true, false, false);
+		public final boolean normal, context, adjacent;
+
+		private EdgeTypeGroup(boolean normal, boolean context, boolean adjacent) {
+			this.normal = normal;
+			this.context = context;
+			this.adjacent = adjacent;
+		}
+
+		public boolean compatible(EdgeType e) {
+			return (this.normal && e.normal) || (this.context && e.context)
+					|| (this.adjacent && e.adjacent);
+		}
 	}
 
 	public Map<Integer, Collection<Integer>> getCrossrefsWithin(

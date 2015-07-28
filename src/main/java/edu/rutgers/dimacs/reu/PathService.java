@@ -16,15 +16,12 @@ import java.util.LinkedList;
 import java.util.Collections;
 import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import javax.ejb.Lock;
 import javax.ejb.Singleton;
 import javax.naming.NamingException;
 import javax.ws.rs.Consumes;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -32,18 +29,13 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
-import javax.ws.rs.PathParam;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Iterables;
 
 import edu.rutgers.dimacs.reu.utility.*;
-import edu.rutgers.dimacs.reu.utility.DataStore.EdgeType;
+import edu.rutgers.dimacs.reu.utility.DataStore.EdgeTypeGroup;
 import static javax.ejb.LockType.READ;
 
 @Path("pathAddition")
@@ -57,7 +49,7 @@ public class PathService {
 	public PathService() throws SQLException, NamingException {
 		// cache.putAll(MySQLHandler.getAllCrossrefs()); //loads the entire
 		// graph, takes 2.5s
-		System.out.println("Path Service Instanciated");
+		LOGGER.info("Path Service Instanciated");
 	}
 
 	@POST
@@ -239,7 +231,7 @@ public class PathService {
 			// System.out.println("curr_int: " + curr_int);
 
 			for (int n : DataStore.getInstance().getAdjacentUndirected(
-					curr_int, EdgeType.NORMAL)) {
+					curr_int, EdgeTypeGroup.NORMALONLY)) {
 				if (visited.contains(n)) {
 					continue;
 				}
@@ -287,7 +279,7 @@ public class PathService {
 				all_ints.add(n);
 				if (addNeighbors)
 					Iterables.addAll(all_ints,DataStore.getInstance()
-							.getAdjacentUndirected(n, EdgeType.NORMAL));
+							.getAdjacentUndirected(n, EdgeTypeGroup.NORMALONLY));
 			}
 		}
 
@@ -351,25 +343,5 @@ public class PathService {
 			}
 		}
 	}
-
-	/*
-	 * private Map<String, Integer> sortByComparator(Map<String, Integer>
-	 * unsortMap) {
-	 * 
-	 * List<Entry<String, Integer>> list = new LinkedList<Entry<String,
-	 * Integer>>(unsortMap.entrySet());
-	 * 
-	 * // Sorting the list based on values Collections.sort(list, new
-	 * Comparator<Entry<String, Integer>>() { public int compare(Entry<String,
-	 * Integer> o1, Entry<String, Integer> o2) { return
-	 * o2.getValue().compareTo(o1.getValue()); } });
-	 * 
-	 * // Maintaining insertion order with the help of LinkedList Map<String,
-	 * Integer> sortedMap = new LinkedHashMap<String, Integer>(); for
-	 * (Entry<String, Integer> entry : list) { sortedMap.put(entry.getKey(),
-	 * entry.getValue()); }
-	 * 
-	 * return sortedMap; }
-	 */
 
 }
