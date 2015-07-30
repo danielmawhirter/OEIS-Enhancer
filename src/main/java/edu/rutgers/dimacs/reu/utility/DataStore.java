@@ -87,9 +87,27 @@ public class DataStore {
 				.build(new CacheLoader<String, HierarchyTree>() {
 					@Override
 					public HierarchyTree load(String graph) throws IOException {
-						InputStream tree_is = cl.getResourceAsStream("graphs/"
-								+ graph + "/tree.txt");
-						return new HierarchyTree(tree_is);
+						if (graph.startsWith("peelpair-")) {
+							InputStream tree_is = cl
+									.getResourceAsStream("graphs/" + graph.split("-")[1]
+											+ "/tree.txt");
+							HierarchyTree one = new HierarchyTree(tree_is);
+							tree_is = cl
+									.getResourceAsStream("graphs/" + graph.split("-")[2]
+											+ "/tree.txt");
+							HierarchyTree two = new HierarchyTree(tree_is);
+							if(one.isEmpty()) {
+								return two;
+							} else if(two.isEmpty()) {
+								return one;
+							}
+							return one.mergeIn(two);
+						} else {
+							InputStream tree_is = cl
+									.getResourceAsStream("graphs/" + graph
+											+ "/tree.txt");
+							return new HierarchyTree(tree_is);
+						}
 					}
 				});
 	}
@@ -150,6 +168,7 @@ public class DataStore {
 		final UnmodifiableIterator<Edge> it = edges.iterator();
 		return new Iterable<Integer>() {
 			private Edge current = it.next();
+
 			@Override
 			public Iterator<Integer> iterator() {
 				return new Iterator<Integer>() {

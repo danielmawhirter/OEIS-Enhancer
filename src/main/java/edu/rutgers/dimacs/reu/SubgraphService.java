@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.ejb.Lock;
 import javax.ejb.Singleton;
@@ -21,12 +23,13 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.StreamingOutput;
 
 import edu.rutgers.dimacs.reu.utility.*;
 import edu.rutgers.dimacs.reu.utility.DataStore.EdgeType;
 
-@Path("subgraph")
 @Singleton
+@Path("jsontree")
 @Lock(READ)
 public class SubgraphService {
 	public static final List<String> knownKeywords = Arrays.asList("allocated",
@@ -35,11 +38,32 @@ public class SubgraphService {
 			"look", "more", "mult", "new", "nice", "nonn", "obsc", "recycled",
 			"sign", "tabf", "tabl", "uned", "unkn", "walk", "word");
 	
+	private final static Logger LOGGER = Logger.getLogger(SubgraphService.class
+			.getName());
+	
+	public SubgraphService() {
+		super();
+		LOGGER.info("EdgeSetService instanciated");
+	}
+	
 	@GET
-	@Path("{query}")
+	@Path("query/{query}")
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response handleQuery(@PathParam("query") String query) {
 		return Response.serverError().build();
+	}
+	
+	@GET
+	@Path("{graph}")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response treeForPeelPair(@PathParam("graph") String graph) {
+		try {
+			StreamingOutput stream = DataStore.getInstance().getTree(graph).streamJSON();
+			return Response.ok(stream).build();
+		} catch (ExecutionException e) {
+			LOGGER.log(Level.SEVERE, "Failed to get hierarchy tree for " + graph, e);
+			return Response.serverError().build();
+		}
 	}
 
 	public Iterable<Integer> subsetByKeywords(Iterable<Integer> baseNodes,

@@ -102,8 +102,12 @@ public class EdgeSetService {
 				.append(Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000)));
 		logString.append("ms\n");
 
-		InputStream edge_is = cl.getResourceAsStream("graphs/" + graph
-				+ "/edges.txt");
+		InputStream edge_is = null;
+		if (graph.startsWith("peelpair-")) {
+			edge_is = cl.getResourceAsStream("graphs/graph3.txt");
+		} else {
+			edge_is = cl.getResourceAsStream("graphs/" + graph + "/edges.txt");
+		}
 		timeStart = System.nanoTime();
 		StreamingOutput stream;
 		try {

@@ -2,8 +2,11 @@ package edu.rutgers.dimacs.reu.utility;
 
 //utility, wrapper over TreeNode
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.TreeMap;
 import java.util.Set;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -11,14 +14,19 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
+import java.io.Writer;
+
+import javax.ws.rs.core.StreamingOutput;
 
 public class HierarchyTree {
 	public TreeNode<String> root = null;
-	private TreeMap<String, TreeNode<String>> lookup = null;
+	private Map<String, TreeNode<String>> lookup = null;
 
 	public HierarchyTree(String file_path) {
-		lookup = new TreeMap<>();
+		lookup = new HashMap<>();
 		root = buildTree(new File(file_path));
 	}
 
@@ -48,6 +56,17 @@ public class HierarchyTree {
 	public boolean isEmpty() {
 		return lookup.size() == 0;
 	}
+	
+	public HierarchyTree mergeIn(HierarchyTree that) {
+		TreeNode<String> newRoot = new TreeNode<>("ROOT");
+		newRoot.addChild(this.root);
+		newRoot.addChild(that.root);
+		lookup.putAll(that.lookup);
+		lookup.put(newRoot.getObject(), newRoot);
+		this.root = newRoot;
+		that.root = newRoot;
+		return this;
+	}
 
 	private TreeNode<String> buildTree(File file) {
 		TreeNode<String> root = null;
@@ -61,6 +80,9 @@ public class HierarchyTree {
 	}
 
 	private TreeNode<String> buildTree(InputStream is) throws IOException {
+		if(null == is) {
+			return null;
+		}
 		TreeNode<String> root = null;
 		BufferedReader br = new BufferedReader(new InputStreamReader(is));
 		root = buildTreeRecursive(br);
@@ -82,6 +104,18 @@ public class HierarchyTree {
 
 	public void outputToFile(String file_path) throws FileNotFoundException, UnsupportedEncodingException {
 		TreeNode.outputTree(this.root, file_path);
+	}
+
+	public StreamingOutput streamJSON() {
+		return new StreamingOutput() {
+			@Override
+			public void write(OutputStream os) throws IOException {
+				Writer writer = new BufferedWriter(new OutputStreamWriter(os));
+				TreeNode.outputTreeJSONStream(root, writer);
+				writer.flush();
+				writer.close();
+			}
+		};
 	}
 
 }

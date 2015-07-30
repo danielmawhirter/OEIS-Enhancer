@@ -8,6 +8,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -112,19 +113,22 @@ public class TreeNode<T> {
 		}
 	}
 
-	public static void outputTreeJSON(TreeNode<?> root, String outfile) throws FileNotFoundException, UnsupportedEncodingException {
+	public static void outputTreeJSON(TreeNode<?> root, String outfile) throws IOException {
 			PrintWriter pw = new PrintWriter(outfile, "UTF-8");
 			outputTreeJSONStream(root, pw);
 			pw.flush();
 			pw.close();
 	}
 
-	private static void outputTreeJSONStream(TreeNode<?> root, PrintWriter pw) {
+	public static void outputTreeJSONStream(TreeNode<?> root, Writer pw) throws IOException {
 		pw.write("{\n\"name\":\"");
 		pw.write(root.toString());
 		pw.write("\"");
 		int childCount = root.getChildCount();
 		boolean hasChildren = childCount > 0;
+		pw.write(",\"size\":\"");
+		pw.write(Integer.toString(root.getLeafObjects().size()));
+		pw.write("\"");
 		if (hasChildren) {
 			pw.write(",\"children\": [");
 		}

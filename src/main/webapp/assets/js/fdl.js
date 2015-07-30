@@ -14,6 +14,30 @@ document.getElementById("relationViewButton").onclick = pathLayout;
 document.getElementById("addToRelationViewButton").onclick = addToPathView;
 document.getElementById("resumeForceButton").onclick = resumeForce;
 document.getElementById("stopForceButton").onclick = stopForce;
+document.getElementById("toggleTableButton").onclick = toggleTable;
+
+var tbl = document.getElementById("peelReferenceTable");
+if (tbl != null) {
+    for (var i = 0; i < tbl.rows.length; i++) {
+        for (var j = 0; j < tbl.rows[i].cells.length; j++) {
+            tbl.rows[i].cells[j].onclick = (function (i, j) {
+                return function () {
+                	toggleTable();
+                	var graphname;
+                	if(i == 0) {
+                		graphname = "peel_value" + j;
+                	} else if(j == 0 || i == j) {
+                		graphname = "peel_value" + i;
+                	} else {
+                		graphname = "peelpair-peel_value" + i + "-peel_value" + j;
+                	}
+                	console.log(graphname);
+                	hierarchyLayoutFull(graphname);
+                };
+            }(i, j));
+        }
+    }
+}
 
 var textField = document.getElementById("sequenceId");
 var enableAddition = false, additionMade = false, additionPending = false;
@@ -38,6 +62,15 @@ function clearSVG() {
 	document.getElementById("decNodeSize").onclick = null;
 }
 
+function toggleTable() {
+	clearSVG();
+	var e = document.getElementById("peelReferenceTable");
+	if(e.style.display == '')
+		e.style.display = 'none';
+	else
+		e.style.display = '';
+}
+
 function resumeForce() {
 	if (force)
 		force.resume();
@@ -48,17 +81,22 @@ function stopForce() {
 		force.stop();
 }
 
+function hierarchyLayout() {
+	var e = document.getElementById("graphSelector");
+	var selectedGraph = e.options[e.selectedIndex].value;
+	hierarchyLayoutFull(selectedGraph);
+}
+
+hierarchyLayout();
+
 // Hierarchy View
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-function hierarchyLayout() {
+function hierarchyLayoutFull(selectedGraph) {
 	clearSVG();
 	var width = window.innerWidth, height = window.innerHeight, root;
 	nodes = [];
 	links = [];
 	enableAddition = false;
-
-	var e = document.getElementById("graphSelector");
-	var selectedGraph = e.options[e.selectedIndex].value;
 
 	force = d3.layout.force().linkDistance(120).charge(-120).gravity(.1).on(
 			"tick", tick);
@@ -103,16 +141,31 @@ function hierarchyLayout() {
 	};
 
 	// loads hierarchy tree from json resource FILE
-	d3.json("assets/json/" + selectedGraph + ".json", function(error, json) {
-		if (error)
-			throw error;
-
-		root = json;
-		resize();
-		root.x = width / 2;
-		root.y = height / 2;
-		colorChildren(root);
-		expand(root); // activate children of root
+	d3.json("jsontree/" + selectedGraph, function(error, json) {
+		if (error) {
+			console.log(error);
+			alert("unavailable");
+			return;
+		}
+		if(json.use) {
+			d3.json(json.use, function(error2, json2) {
+				if (error2)
+					throw error2;
+				root = json2;
+				resize();
+				root.x = width / 2;
+				root.y = height / 2;
+				colorChildren(root);
+				expand(root); // activate children of root
+			});
+		} else {
+			root = json;
+			resize();
+			root.x = width / 2;
+			root.y = height / 2;
+			colorChildren(root);
+			expand(root); // activate children of root
+		}
 	});
 
 	function update() {
@@ -498,6 +551,7 @@ function pathLayout() {
 		node_elements.select("circle").style("fill", fillColor);
 		additionMade = false;
 		refreshAfterZoom();
+		console.log("showing " + nodes.length + " nodes and " + links.length + " links")
 	}
 
 	function tick() {
@@ -700,8 +754,12 @@ function addToPathView() {
 		alert("already added");
 		return;
 	}
-	additionPending = true;
 	var addedSequence = textField.value;
+	if(isNaN(addedSequence)) {
+		alert(addedSewuence + "is not a sequence number");
+		return;
+	}
+	additionPending = true;
 	textField.value = "";
 	// console.log(nodes);
 
