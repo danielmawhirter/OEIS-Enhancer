@@ -47,64 +47,28 @@ public class PathService {
 			.getName());
 
 	public PathService() throws SQLException, NamingException {
-		// cache.putAll(MySQLHandler.getAllCrossrefs()); //loads the entire
-		// graph, takes 2.5s
 		LOGGER.info("Path Service Instanciated");
 	}
 
 	@POST
-	//@Path("{newNode}/{pathTo}/{includeNeighborhoods}")
 	@Produces(MediaType.APPLICATION_JSON)
 	@Consumes(MediaType.APPLICATION_JSON)
-	public Response getAddition(String input
-			/*@PathParam("newNode") String newNode,
-			@PathParam("pathTo") String existing,
-			@PathParam("includeNeighborhoods") @DefaultValue("false") boolean includeNeighborhoods*/) {
+	public Response getAddition(String input) {
+		JSONObject obj = new JSONObject(input);
+		String newNode = obj.getString("newNode");
+		String existing = obj.getString("existing");
+		boolean includeNeighborhoods = obj
+				.getBoolean("includeNeighborhoods");
+		long timeStart = System.nanoTime();
+		LOGGER.info("query: " + newNode + "/" + existing);
 		try {
-			JSONObject obj = new JSONObject(input);
-			String newNode = obj.getString("newNode");
-			String existing = obj.getString("existing");
-			boolean includeNeighborhoods = obj.getBoolean("includeNeighborhoods");
-			long timeStart;
-
-			// log
-			LOGGER.info("query: " + newNode + "/" + existing);
-			timeStart = System.nanoTime();
-
-			// run
-			ArrayList<ArrayList<Integer>> paths = getShortestPath(newNode,
-					existing);
-
-			// log
-			LOGGER.info("getShortestPath took "
-					+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
-					+ "ms");
-			timeStart = System.nanoTime();
-
-			// run
-			Graph graph = buildGraph(neighborhoods(paths, includeNeighborhoods));
-
-			// log
-			LOGGER.info("building graph took "
-					+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
-					+ "ms");
-			timeStart = System.nanoTime();
-
-			// run
-			HashSet<Integer> paths_set = new HashSet<Integer>();
-			for (ArrayList<Integer> path : paths) {
-				paths_set.addAll(path);
-			}
-			StreamingOutput stream = finalJSON(graph, paths_set);
-			return Response.ok(stream).build();
-
+			ArrayList<Integer> path = getShortestPath(newNode, existing);
+			Graph graph = buildGraph(neighborhoods(path, includeNeighborhoods));
+			return Response.ok(finalJSON(graph, path, timeStart)).build();
 		} catch (ExecutionException e) {
-			LOGGER.severe("cache failure on query " + "");
+			LOGGER.severe("cache failure on query :" + newNode + "/" + existing);
 			return Response.serverError().build();
-		} /*
-		 * catch (SQLException e) { LOGGER.severe("labeling failure (sql)");
-		 * return Response.serverError().build(); }
-		 */
+		}
 	}
 
 	public Graph buildGraph(HashSet<Integer> ints) throws ExecutionException {
@@ -114,8 +78,9 @@ public class PathService {
 		for (int n : ints) {
 			graph.addNode(Integer.toString(n));
 		}
-		
-		Map<Integer, Collection<Integer>> refs = DataStore.getInstance().getCrossrefsWithin(ints);
+
+		Map<Integer, Collection<Integer>> refs = DataStore.getInstance()
+				.getCrossrefsWithin(ints);
 
 		// for each node, get the neighborhood
 		// and if the neighbor_gn exists, add the edge
@@ -148,8 +113,7 @@ public class PathService {
 	}
 
 	public StreamingOutput finalJSON(final Graph graph,
-			final HashSet<Integer> path_ints) {
-		final long timeStart = System.nanoTime();
+			final Collection<Integer> path_ints, final long timeStart) {
 		StreamingOutput stream = new StreamingOutput() {
 			@Override
 			public void write(OutputStream os) throws IOException,
@@ -166,7 +130,7 @@ public class PathService {
 				writer.write("]\n}");
 				writer.flush();
 				writer.close();
-				LOGGER.info("generating JSON took "
+				LOGGER.info("algorithm and response with JSON took "
 						+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000))
 						+ "ms");
 			}
@@ -174,17 +138,15 @@ public class PathService {
 		return stream;
 	}
 
-	public ArrayList<ArrayList<Integer>> getShortestPath(String source,
-			String dests) throws ExecutionException {
-		ArrayList<ArrayList<Integer>> paths = new ArrayList<ArrayList<Integer>>();
+	public ArrayList<Integer> getShortestPath(String source, String dests)
+			throws ExecutionException {
+		ArrayList<Integer> path = new ArrayList<Integer>();
 
 		Integer source_int = Integer.parseInt(source);
+		path.add(source_int);
 
 		if (dests.equals("NONE")) {
-			ArrayList<Integer> the_str = new ArrayList<Integer>();
-			the_str.add(source_int);
-			paths.add(the_str);
-			return paths;
+			return path;
 		}
 
 		// store dests in TreeSet<Integer>
@@ -194,22 +156,13 @@ public class PathService {
 			dest_ints.add(Integer.parseInt(destinations[i]));
 		}
 
-		// make sure no dests are source
-		LinkedList<Integer> toRemove = new LinkedList<>();
-		for (Integer n : dest_ints) {
-			if (n.equals(source_int)) {
-				toRemove.add(n);
-			}
-		}
-		for (Integer n : toRemove) {
-			dest_ints.remove(n);
+		if (dest_ints.isEmpty()) {
+			return path;
 		}
 
-		if (dest_ints.isEmpty()) {
-			ArrayList<Integer> the_str = new ArrayList<Integer>();
-			the_str.add(source_int);
-			paths.add(the_str);
-			return paths;
+		// make sure no dests are source
+		if (dest_ints.contains(source_int)) {
+			return path;
 		}
 
 		Queue<Integer> queue = new LinkedList<Integer>();
@@ -248,10 +201,7 @@ public class PathService {
 		}
 
 		if (dests_visited.size() == 0) {
-			ArrayList<Integer> path_ints = new ArrayList<Integer>();
-			path_ints.add(source_int);
-			paths.add(path_ints);
-			return paths;
+			return path;
 		}
 
 		for (int dest_int : dests_visited) {
@@ -263,31 +213,29 @@ public class PathService {
 			}
 			path_ints.add(curr_int);
 			Collections.reverse(path_ints);
-			paths.add(path_ints);
+			path.addAll(path_ints);
+			break;
 		}
 
-		return paths;
+		return path;
 	}
 
-	public HashSet<Integer> neighborhoods(
-			ArrayList<ArrayList<Integer>> paths_ints, boolean addNeighbors)
-			throws ExecutionException {
+	public HashSet<Integer> neighborhoods(ArrayList<Integer> path,
+			boolean addNeighbors) throws ExecutionException {
 		HashSet<Integer> all_ints = new HashSet<Integer>();
 
-		for (ArrayList<Integer> path : paths_ints) {
-			for (int n : path) {
-				all_ints.add(n);
-				if (addNeighbors)
-					Iterables.addAll(all_ints,DataStore.getInstance()
-							.getAdjacentUndirected(n, EdgeTypeGroup.NORMALONLY));
-			}
+		for (int n : path) {
+			all_ints.add(n);
+			if (addNeighbors)
+				Iterables.addAll(all_ints, DataStore.getInstance()
+						.getAdjacentUndirected(n, EdgeTypeGroup.NORMALONLY));
 		}
 
 		return all_ints;
 	}
 
-	public void nodesJSON(Graph graph, HashSet<Integer> path_ints, Writer writer)
-			throws SQLException, IOException, NamingException {
+	public void nodesJSON(Graph graph, Collection<Integer> path_ints,
+			Writer writer) throws SQLException, IOException, NamingException {
 		if (path_ints.size() == 0) {
 			return;
 		}
