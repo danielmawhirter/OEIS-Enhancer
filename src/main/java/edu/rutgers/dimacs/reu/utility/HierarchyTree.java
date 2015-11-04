@@ -25,17 +25,17 @@ public class HierarchyTree {
 	public TreeNode<String> root = null;
 	private Map<String, TreeNode<String>> lookup = null;
 
-	public HierarchyTree(String file_path) {
+	public HierarchyTree(String file_path) throws IOException, HierarchyTreeException {
 		lookup = new HashMap<>();
 		root = buildTree(new File(file_path));
 	}
 
-	public HierarchyTree(File file) {
+	public HierarchyTree(File file) throws IOException, HierarchyTreeException {
 		lookup = new TreeMap<>();
 		root = buildTree(file);
 	}
 
-	public HierarchyTree(InputStream is) throws IOException {
+	public HierarchyTree(InputStream is) throws IOException, HierarchyTreeException {
 		lookup = new TreeMap<>();
 		root = buildTree(is);
 	}
@@ -48,7 +48,7 @@ public class HierarchyTree {
 		} else
 			return node.getLeafObjects();
 	}
-	
+
 	public TreeNode<String> getNode(String id) {
 		return lookup.get(id);
 	}
@@ -56,7 +56,7 @@ public class HierarchyTree {
 	public boolean isEmpty() {
 		return lookup.size() == 0;
 	}
-	
+
 	public HierarchyTree mergeIn(HierarchyTree that) {
 		TreeNode<String> newRoot = new TreeNode<>("ROOT");
 		newRoot.addChild(this.root);
@@ -68,19 +68,16 @@ public class HierarchyTree {
 		return this;
 	}
 
-	private TreeNode<String> buildTree(File file) {
+	private TreeNode<String> buildTree(File file) throws IOException, HierarchyTreeException {
 		TreeNode<String> root = null;
-		try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-			root = buildTreeRecursive(br);
-			br.close();
-		} catch (IOException e) {
-			e.printStackTrace(System.out);
-		}
+		BufferedReader br = new BufferedReader(new FileReader(file));
+		root = buildTreeRecursive(br);
+		br.close();
 		return root;
 	}
 
-	private TreeNode<String> buildTree(InputStream is) throws IOException {
-		if(null == is) {
+	private TreeNode<String> buildTree(InputStream is) throws IOException, HierarchyTreeException {
+		if (null == is) {
 			return null;
 		}
 		TreeNode<String> root = null;
@@ -91,9 +88,11 @@ public class HierarchyTree {
 		return root;
 	}
 
-	private TreeNode<String> buildTreeRecursive(BufferedReader br)
-			throws IOException {
+	private TreeNode<String> buildTreeRecursive(BufferedReader br) throws IOException, HierarchyTreeException {
 		String[] line = br.readLine().split(" ");
+		if (this.lookup.containsKey(line[0])) {
+			throw new HierarchyTreeException(line[0] + " is not a unique label");
+		}
 		TreeNode<String> node = new TreeNode<>(line[0]);
 		this.lookup.put(line[0], node);
 		for (int i = 0; i < Integer.parseInt(line[1]); i++) {

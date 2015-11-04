@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.ejb.Lock;
@@ -56,12 +55,12 @@ public class SubgraphService {
 	@GET
 	@Path("{graph}")
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response treeForPeelPair(@PathParam("graph") String graph) {
+	public Response treeForGraph(@PathParam("graph") String graph) {
 		try {
 			StreamingOutput stream = DataStore.getInstance().getTree(graph).streamJSON();
 			return Response.ok(stream).build();
 		} catch (ExecutionException e) {
-			LOGGER.log(Level.SEVERE, "Failed to get hierarchy tree for " + graph, e);
+			LOGGER.severe("Failed to get hierarchy tree for \"" + graph + "\"\n" + e.getMessage());
 			return Response.serverError().build();
 		}
 	}

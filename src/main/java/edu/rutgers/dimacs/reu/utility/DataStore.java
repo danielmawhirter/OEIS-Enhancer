@@ -86,7 +86,7 @@ public class DataStore {
 				.expireAfterAccess(5, TimeUnit.MINUTES)
 				.build(new CacheLoader<String, HierarchyTree>() {
 					@Override
-					public HierarchyTree load(String graph) throws IOException {
+					public HierarchyTree load(String graph) throws IOException, HierarchyTreeException {
 						if (graph.startsWith("peelpair-")) {
 							InputStream tree_is = cl
 									.getResourceAsStream("graphs/" + graph.split("-")[1]
@@ -195,6 +195,13 @@ public class DataStore {
 							current = null;
 						}
 						return select;
+					}
+					
+					@Override
+					public void remove() {
+						if(hasNext()) {
+							next();
+						}
 					}
 				};
 			}

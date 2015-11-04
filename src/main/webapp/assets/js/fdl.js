@@ -108,8 +108,8 @@ function hierarchyLayoutFull(selectedGraph) {
 	}).on("dragstart", dragstarted).on("drag", dragged).on("dragend", dragend);
 
 	var currentZoomLevel = 1.0;
-	var fontSize = 1.0;
-	var nodeSize = 5.0;
+	var fontSize = 0.3;
+	var nodeSize = 3.0;
 	var sizeMultiplier = 1.1;
 
 	var svg = d3.select("body").append("svg");
@@ -156,7 +156,7 @@ function hierarchyLayoutFull(selectedGraph) {
 				root.x = width / 2;
 				root.y = height / 2;
 				colorChildren(root);
-				expand(root); // activate children of root
+				expandMany(root); // activate children of root
 			});
 		} else {
 			root = json;
@@ -164,7 +164,7 @@ function hierarchyLayoutFull(selectedGraph) {
 			root.x = width / 2;
 			root.y = height / 2;
 			colorChildren(root);
-			expand(root); // activate children of root
+			expandMany(root); // activate children of root
 		}
 	});
 
@@ -341,7 +341,7 @@ function hierarchyLayoutFull(selectedGraph) {
 	function click(d) {
 		if (d3.event.defaultPrevented)
 			return; // ignore drag
-		expand(d);
+		expandMany(d);
 	}
 
 	function rightClick(d) {
@@ -394,6 +394,79 @@ function hierarchyLayoutFull(selectedGraph) {
 					d.color = n.color;
 				interests.push(d.name);
 			});
+			d3.json("incidentEdges/getIncident").header("Content-Type",
+					"application/json").post(JSON.stringify({
+				graph : selectedGraph,
+				query : interests
+			}), updateLinks);
+			update();
+		} else {
+			if (isNaN(n.name.split("p")[0]))
+				alert("Leaf id: " + n.name);
+			else
+				window.open("http://oeis.org/A" + n.name.split("p")[0]);
+		}
+	}
+	
+	function expandMany(n) {
+		n.fixed = false;
+		if (n.children) {
+			var interests = [];
+			var toRemove = [];
+			for (i = 0; i < links.length; i++) {
+				if (links[i].source_name === n.name) {
+					toRemove.push(i);
+					interests.push(links[i].target_name);
+				} else if (links[i].target_name === n.name) {
+					toRemove.push(i);
+					interests.push(links[i].source_name);
+				}
+			}
+			while (toRemove.length > 0) {
+				links.splice(toRemove.pop(), 1);
+			}
+			n.active = false;
+			
+			var selectedExpansion = [];
+			var expansionSize = n.children.length;
+			n.children.forEach(function(d) {
+				selectedExpansion.push(d);
+			});
+			
+			while(expansionSize < 1024) {
+				var bestIndex = -1;
+				var bestCount = 1000000000;
+				for (i = 0; i < selectedExpansion.length; i++) {
+					var current = selectedExpansion[i];
+					if(current.children && (current.children.length < bestCount)) {
+						bestCount = current.children.length;
+						bestIndex = i;
+					}
+				}
+				if(bestIndex < 0) {
+					break;
+				} else {
+					var thenode = selectedExpansion[bestIndex];
+					expansionSize += thenode.children.length - 1;
+					selectedExpansion.splice(bestIndex, 1);
+					for (i = 0; i < thenode.children.length; i++) {
+						thenode.children[i].color = thenode.color;
+						selectedExpansion.push(thenode.children[i]);
+					}
+				}
+			}
+			
+			selectedExpansion.forEach(function(d) {
+				d.active = true;
+				d.x = n.x + 40 * Math.log(n.children.length)
+						* (Math.random() - 0.5);
+				d.y = n.y + 40 * Math.log(n.children.length)
+						* (Math.random() - 0.5);
+				if (n != root)
+					d.color = n.color;
+				interests.push(d.name);
+			});
+			
 			d3.json("incidentEdges/getIncident").header("Content-Type",
 					"application/json").post(JSON.stringify({
 				graph : selectedGraph,
