@@ -675,10 +675,11 @@ function pathLayout() {
 		if (d.path) {
 			if (primaryNodes.indexOf(d.name.split("-")[0]) != -1)
 				return "red";
-			else
-				return "blue";
-		} else
-			return "gray";
+			if (d.landmark)
+				return "yellow"
+			return "blue";
+		}
+		return "gray";
 	}
 
 	function allText(d) {
