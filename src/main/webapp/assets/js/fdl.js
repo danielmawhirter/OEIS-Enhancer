@@ -574,12 +574,17 @@ function pathLayout() {
 				nodes[i].fixed = true;
 			}
 		}
-		d3.json("neighborhoods").header("Content-Type", "application/json").post(
+		d3.json("getLandmarks").header("Content-Type", "application/json").post(
 				JSON.stringify({
 					existing : existingString,
 					egonets : false
 				}), mergeNodesLinks);
 	};
+	
+	document.getElementById("showTreeButton").onclick = function() {
+		console.log("Show Tree");
+		d3.json("centroidPathAddition/getLandmarks", mergeNodesLinks);
+	}
 
 	svg.append('defs').append('svg:marker').attr('id', 'end-arrow').attr(
 			'viewBox', '0 -5 10 10').attr('refX', 6).attr('markerWidth', 3)
@@ -673,10 +678,10 @@ function pathLayout() {
 
 	function fillColor(d) {
 		if (d.path) {
-			if (primaryNodes.indexOf(d.name.split("-")[0]) != -1)
-				return "red";
 			if (d.landmark)
 				return "yellow"
+			if (primaryNodes.indexOf(d.name.split("-")[0]) != -1)
+				return "red";
 			return "blue";
 		}
 		return "gray";
@@ -856,7 +861,7 @@ function addToPathView() {
 		}
 	}
 	primaryNodes.push(addedSequence);
-	d3.json("pathAddition").header("Content-Type", "application/json").post(
+	d3.json("centroidPathAddition").header("Content-Type", "application/json").post(
 			JSON.stringify({
 				newNode : addedSequence,
 				existing : existingString,
@@ -875,6 +880,13 @@ function mergeInLinks(addLinks) {
 	for (i = 0; i < nodes.length; i++) {
 		nodeLookup[nodes[i].name] = nodes[i];
 	}
+	addLinks.sort(function(a, b){
+	    if(a.source_name < b.source_name) return -1;
+	    if(a.source_name > b.source_name) return 1;
+	    if(a.target_name < b.target_name) return -1;
+	    if(a.target_name > b.target_name) return 1;
+	    return 0;
+	});
 	// merging avoid duplicates
 	while (links.length > 0 && addLinks.length > 0) {
 		if (!addLinks[0].source) {
@@ -912,9 +924,15 @@ function mergeNodesLinks(error, json) {
 		console.log(error);
 		return;
 	}
-	//console.log(json);
+	//console.log(json); //--------------------
+	//console.log(JSON.stringify(json));
 	force.stop();
 	if (json.nodes) {
+		json.nodes.sort(function(a, b){
+		    if(a.name < b.name) return -1;
+		    if(a.name > b.name) return 1;
+		    return 0;
+		});
 		var newNodes = [];
 		while (nodes.length > 0 && json.nodes.length > 0) {
 			var name_node = nodes[0].name.split("-")[0];
@@ -925,6 +943,7 @@ function mergeNodesLinks(error, json) {
 				var other = json.nodes.shift();
 				current.path = current.path || other.path;
 				current.description = current.description || other.description;
+				current.landmark = current.landmark || other.landmark;
 				newNodes.push(current);
 			} else if (name_node < name_json) {
 				newNodes.push(nodes.shift());
@@ -946,6 +965,8 @@ function mergeNodesLinks(error, json) {
 	if (json.links) {
 		mergeInLinks(json.links);
 	}
+	//console.log(nodes);
+	//console.log(links);
 	additionMade = true;
 	additionPending = false;
 	force.resume();
