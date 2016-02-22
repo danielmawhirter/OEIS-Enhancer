@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Serializable;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
@@ -13,7 +14,6 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import javax.ejb.Singleton;
@@ -31,14 +31,11 @@ public class DataStore {
 
 	private static final Logger LOGGER = Logger.getLogger(DataStore.class
 			.getName());
-	private final ClassLoader cl;
 	private final LoadingCache<Integer, ImmutableSet<Edge>> crossrefCache;
-	private final LoadingCache<String, HierarchyTree> treeCache;
 
-	private static DataStore instance = new DataStore();
+	private static DataStore instance = new DataStore(); //static init singleton
 
 	private DataStore() {
-		cl = this.getClass().getClassLoader();
 		crossrefCache = CacheBuilder.newBuilder().maximumWeight(10000000)
 		// .expireAfterAccess(600, TimeUnit.MINUTES)
 				.weigher(new Weigher<Integer, ImmutableSet<Edge>>() {
@@ -67,12 +64,10 @@ public class DataStore {
 							if (node.intValue() == rs.getInt(1)) {
 								e = new Edge(rs.getInt(2), type, true);
 							} else {
-								e = new Edge(rs.getInt(1), type, true);
+								e = new Edge(rs.getInt(2), type, false);
 							}
 							setBuilder.add(e);
 						}
-						// return MySQLHandler.getCrossrefsLeaving(node,
-						// CrossrefTypes.NORMALONLY);
 						return setBuilder.build();
 					}
 				});
@@ -82,34 +77,11 @@ public class DataStore {
 		} catch (NumberFormatException | IOException e) {
 			LOGGER.warning("Failed to add edges to cache");
 		}
-		treeCache = CacheBuilder.newBuilder().maximumSize(10)
-				.expireAfterAccess(5, TimeUnit.MINUTES)
-				.build(new CacheLoader<String, HierarchyTree>() {
-					@Override
-					public HierarchyTree load(String graph) throws IOException, HierarchyTreeException {
-						if (graph.startsWith("peelpair-")) {
-							InputStream tree_is = cl
-									.getResourceAsStream("graphs/" + graph.split("-")[1]
-											+ "/tree.txt");
-							HierarchyTree one = new HierarchyTree(tree_is);
-							tree_is = cl
-									.getResourceAsStream("graphs/" + graph.split("-")[2]
-											+ "/tree.txt");
-							HierarchyTree two = new HierarchyTree(tree_is);
-							if(one.isEmpty()) {
-								return two;
-							} else if(two.isEmpty()) {
-								return one;
-							}
-							return one.mergeIn(two);
-						} else {
-							InputStream tree_is = cl
-									.getResourceAsStream("graphs/" + graph
-											+ "/tree.txt");
-							return new HierarchyTree(tree_is);
-						}
-					}
-				});
+		try {
+			MySQLHandler.getInstance().verifyAccess();
+		} catch (SQLException | NamingException e) {
+			LOGGER.warning("Database-connected datasource unavailable");
+		}
 	}
 
 	private DataStore fillCrossrefCache() throws NumberFormatException,
@@ -143,7 +115,7 @@ public class DataStore {
 				map.put(two, twoAdj);
 			}
 			oneAdj.add(new Edge(two, type, true));
-			twoAdj.add(new Edge(one, type, true));
+			twoAdj.add(new Edge(one, type, false));
 		}
 		for (Integer i : map.keySet()) {
 			ImmutableSet.Builder<Edge> setBuilder = ImmutableSet
@@ -177,7 +149,7 @@ public class DataStore {
 						if (null == current) {
 							return false;
 						}
-						while (!typeGroup.compatible(current.getType())) {
+						while (!typeGroup.compatible(current.type)) {
 							if (!it.hasNext()) {
 								return false;
 							}
@@ -188,7 +160,7 @@ public class DataStore {
 
 					@Override
 					public Integer next() {
-						Integer select = current.getDest();
+						Integer select = current.dest;
 						if (it.hasNext()) {
 							current = it.next();
 						} else {
@@ -223,22 +195,9 @@ public class DataStore {
 			this.type = type;
 		}
 
-		boolean forward;
-		private int dest;
-
-		public boolean isForward() {
-			return forward;
-		}
-
-		public int getDest() {
-			return dest;
-		}
-
-		public EdgeType getType() {
-			return type;
-		}
-
-		private EdgeType type;
+		public final boolean forward;
+		public final int dest;
+		public final EdgeType type;
 	}
 
 	public static enum EdgeType {
@@ -277,8 +236,8 @@ public class DataStore {
 			LinkedList<Integer> list = new LinkedList<Integer>();
 			ImmutableSet<Edge> adj = crossrefCache.get(i);
 			for (Edge j : adj) {
-				if (j.isForward() && j.getType() == type) {
-					list.add(j.getDest());
+				if (j.forward && j.type == type) {
+					list.add(j.dest);
 				}
 			}
 			map.put(i, list);
@@ -304,10 +263,8 @@ public class DataStore {
 
 	public Map<Integer, String> getDescription(Iterable<Integer> path_ints)
 			throws SQLException, NamingException {
+		if(null == path_ints) return null;
 		return MySQLHandler.getInstance().getDescription(path_ints);
 	}
 
-	public HierarchyTree getTree(String name) throws ExecutionException {
-		return treeCache.get(name);
-	}
 }

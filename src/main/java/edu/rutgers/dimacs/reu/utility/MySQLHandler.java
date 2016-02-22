@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.logging.Logger;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
@@ -19,6 +20,8 @@ import javax.naming.NamingException;
 import javax.sql.DataSource;
 
 final class MySQLHandler {
+	private static final Logger LOGGER = Logger.getLogger(MySQLHandler.class
+			.getName());
 	private Connection con = null;
 	private Statement st = null;
 	private static MySQLHandler instance = null;
@@ -57,16 +60,23 @@ final class MySQLHandler {
 
 	static synchronized MySQLHandler getInstance() throws NamingException,
 			SQLException {
-		if (null == instance)
+		if (null == instance) {
+			LOGGER.info("New instance created");
 			instance = new MySQLHandler();
+		}
 		if(instance.con.isClosed()) {
+			LOGGER.info("Refreshing instance");
 			instance.close();
-			instance = new MySQLHandler();
+			instance.init();
 		}
 		return instance;
 	}
 
 	private MySQLHandler() throws NamingException, SQLException {
+		init();
+	}
+	
+	private void init() throws NamingException, SQLException {
 		Context initCtx = new InitialContext();
 		Context envCtx = (Context) initCtx.lookup("java:comp/env");
 		DataSource ds = (DataSource) envCtx.lookup("jdbc/OEIS-REU-2015");
@@ -74,12 +84,11 @@ final class MySQLHandler {
 		st = con.createStatement();
 	}
 
-	public boolean close() throws SQLException {
+	public void close() throws SQLException {
 		st.close();
 		st = null;
 		con.close();
 		con = null;
-		return true;
 	}
 
 	public Map<String, Integer> getWordMultiSet(int sequenceId,
@@ -421,8 +430,16 @@ final class MySQLHandler {
 	public ResultSet getCrossrefsIncident(int sequence) throws SQLException {
 		return st.executeQuery("SELECT * FROM Cross_Refs WHERE ourSeq_Ref="
 				+ sequence
-				+ " UNION ALL SELECT * FROM Cross_Refs WHERE otherSeq_Ref="
+				+ " OR otherSeq_Ref="
 				+ sequence + ";");
+	}
+	
+	public void verifyAccess() throws SQLException {
+		ResultSet rs = st.executeQuery("SELECT DATABASE();");
+		rs.next();
+		if(rs.getString(1) != "OEIS-REU-2015") {
+			throw new SQLException("Invalid database connection");
+		}
 	}
 
 }
