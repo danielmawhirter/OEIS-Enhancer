@@ -9,6 +9,7 @@ var additionMade = false, additionPending = false;
 var primaryNodes = null;
 var force = null;
 var nodes = null, links = null;
+var hist = [];
 
 function clearSVG() {
 	d3.select("svg").remove();
@@ -132,6 +133,15 @@ function pathLayout() {
 					egonets : false
 				}), mergeNodesLinks);
 	};
+	
+	document.getElementById("relationViewButton").onclick = function() {
+		console.log("Clear View");
+		nodes = [];
+		links = [];
+		hist = [];
+		additionMade = false;
+		additionPending = false;
+	}
 
 	svg.append('defs').append('svg:marker').attr('id', 'end-arrow').attr(
 			'viewBox', '0 -5 10 10').attr('refX', 6).attr('markerWidth', 3)
@@ -356,6 +366,7 @@ function addToPathView() {
 		return;
 	}
 	additionPending = true;
+	hist.push(textField.value);
 	textField.value = "";
 	// console.log(nodes);
 

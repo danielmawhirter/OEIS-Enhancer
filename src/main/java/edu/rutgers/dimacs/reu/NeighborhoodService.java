@@ -56,7 +56,6 @@ public class NeighborhoodService {
 			if(egonets) {
 				return Response.serverError().build();
 			} else {
-				LOGGER.info("Returning neighborhoods as stream");
 				return Response.ok(neighborhoods(existing)).build();
 			}
 		} catch (NumberFormatException | JSONException | ExecutionException e) {

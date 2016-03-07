@@ -180,9 +180,7 @@ public class CentroidPathService {
 
 		ArrayList<Integer> output_path = new ArrayList<>(pathToLM);
 		output_path.addAll(peelToLmToPath.get(level).get(closestlm));
-		LOGGER.info("output_path: " + output_path.toString());
 		return output_path;
-
 	}
 
 	private void writeNodesJSON(Graph graph, Set<Integer> path_ints, Writer writer) throws IOException {
