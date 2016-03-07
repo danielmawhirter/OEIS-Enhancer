@@ -38,7 +38,8 @@ function stopForce() {
 
 document.getElementById("showTreeButton").onclick = function() {
 	console.log("Show Tree");
-	d3.json("centroidPathService/getLandmarks", mergeNodesLinks);
+	var p_level = parseInt(peelSelect.options[peelSelect.selectedIndex].text) || 0;
+	d3.json("centroidPathService/getLandmarks?peel=" + p_level, mergeNodesLinks);
 }
 
 d3.json("centroidPathService/peelLevels", function(error, data) {

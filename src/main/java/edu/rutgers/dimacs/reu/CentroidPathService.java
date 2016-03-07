@@ -95,7 +95,7 @@ public class CentroidPathService {
 			level = 0;
 		}
 		long timeStart = System.nanoTime();
-		Set<Integer> all = new HashSet<>(peelToLmToPath.get(0).keySet());
+		Set<Integer> all = new HashSet<>(peelToLmToPath.get(peel).keySet());
 		for (Integer lm : peelToLmToPath.get(level).keySet()) {
 			all.addAll(peelToLmToPath.get(level).get(lm));
 		}
