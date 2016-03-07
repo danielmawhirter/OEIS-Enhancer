@@ -1,5 +1,4 @@
 <!doctype html>
-<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -15,12 +14,15 @@
       <div class="menu">
         <div>||| Menu |||</div>
         <div class="popup">
-          <input class="menuButton" id="relationViewButton" type="button" value="Open Path View" />
+          <select id="peelSelection">
+            <option value="" disabled selected>Select a peel value</option>
+          </select>
           <input id="sequenceId" type="text" size="15" placeholder="Sequence to Add">
           <input class="menuButton" id="addToRelationViewButton" type="button" value="Add Sequence to View" />
           <input class="menuButton" id="resumeForceButton" type="button" value="Resume Force" />
           <input class="menuButton" id="stopForceButton" type="button" value="Stop Force" />
           <input class="menuButton" id="showTreeButton" type="button" value="Show Tree" />
+          <input class="menuButton" id="relationViewButton" type="button" value="Clear View" />
           <input class="menuButton" id="addNeighborhoodsButton" type="button" value="Add Neighborhoods" />
         </div>
       </div>

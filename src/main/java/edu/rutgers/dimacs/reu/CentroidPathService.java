@@ -28,11 +28,13 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import edu.rutgers.dimacs.reu.utility.*;
@@ -40,22 +42,28 @@ import edu.rutgers.dimacs.reu.utility.DataStore.EdgeTypeGroup;
 import static javax.ejb.LockType.READ;
 
 @Singleton
-@Path("centroidPathAddition")
+@Path("centroidPathService")
 @Lock(READ)
 public class CentroidPathService {
 	private static final Logger LOGGER = Logger.getLogger(CentroidPathService.class.getName());
-	private final Map<Integer, ArrayList<Integer>> lmToPath;
+	private final ArrayList<Map<Integer, ArrayList<Integer>>> peelToLmToPath;
 	private final DataStore ds;
 
 	@SuppressWarnings("unchecked")
 	public CentroidPathService() {
+		ArrayList<Map<Integer, ArrayList<Integer>>> levels = null;
 		Map<Integer, ArrayList<Integer>> map = null;
 		try {
+			levels = (ArrayList<Map<Integer, ArrayList<Integer>>>) loadSerialized("pvTo_LmToPath.ser");
 			map = (Map<Integer, ArrayList<Integer>>) loadSerialized("lmToPath.ser");
 		} catch (ClassNotFoundException | IOException e) {
 			e.printStackTrace();
 		} finally {
-			lmToPath = map;
+			if(null == levels && null != map) {
+				levels = new ArrayList<>();
+				levels.add(map);
+			}
+			peelToLmToPath = levels;
 		}
 		ds = DataStore.getInstance();
 		LOGGER.info("Centroid Path Service Instanciated");
@@ -70,6 +78,7 @@ public class CentroidPathService {
 	 */
 	private Object loadSerialized(String source) throws IOException, ClassNotFoundException {
 		InputStream is = this.getClass().getClassLoader().getResourceAsStream(source);
+		if(null == is) return null;
 		ObjectInputStream ois = new ObjectInputStream(is);
 		Object o = ois.readObject();
 		ois.close();
@@ -80,11 +89,15 @@ public class CentroidPathService {
 	@Path("getLandmarks")
 	@GET
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response getLandmarks() {
+	public Response getLandmarks(@QueryParam("peel") final int peel) {
+		int level = peel;
+		if(level < 0 || level >= peelToLmToPath.size()) {
+			level = 0;
+		}
 		long timeStart = System.nanoTime();
-		Set<Integer> all = new HashSet<>(lmToPath.keySet());
-		for (Integer lm : lmToPath.keySet()) {
-			all.addAll(lmToPath.get(lm));
+		Set<Integer> all = new HashSet<>(peelToLmToPath.get(0).keySet());
+		for (Integer lm : peelToLmToPath.get(level).keySet()) {
+			all.addAll(peelToLmToPath.get(level).get(lm));
 		}
 		Graph graph = buildGraph(all);
 		return Response.ok(finalJSON(graph, null, timeStart)).build();
@@ -95,16 +108,32 @@ public class CentroidPathService {
 	@Consumes(MediaType.APPLICATION_JSON)
 	public Response getAddition(String input) {
 		JSONObject obj = new JSONObject(input);
-		String newNode = obj.getString("newNode");
+		String newNode;
+		try {
+			newNode = obj.getString("newNode");
+		} catch(JSONException e) {
+			return Response.serverError().build();
+		}
+		int peelLevel = 0;
+		try {
+			peelLevel = obj.getInt("peel");
+		} catch(JSONException e) {}
 		long timeStart = System.nanoTime();
-		LOGGER.info("query: " + newNode);
-		Collection<Integer> path = getPath(newNode);
+		LOGGER.info("query: " + input);
+		Collection<Integer> path = getPath(newNode, peelLevel);
 		Set<Integer> path_ints = new HashSet<Integer>(path);
 		Graph graph = buildGraph(path_ints);
 		return Response.ok(finalJSON(graph, path_ints, timeStart)).build();
 	}
+	
+	@Path("peelLevels")
+	@GET
+	@Produces(MediaType.APPLICATION_JSON)
+	public String getPeelLevels() {
+		return Integer.toString(peelToLmToPath.size());
+	}
 
-	private Collection<Integer> getPath(String inputStr) {
+	private Collection<Integer> getPath(String inputStr, int level) {
 		int input = Integer.parseInt(inputStr);
 		Queue<Integer> queue = new LinkedList<Integer>(); 
 		HashSet<Integer> visited = new HashSet<Integer>();
@@ -118,13 +147,13 @@ public class CentroidPathService {
 		while (!queue.isEmpty()) {
 			Integer u = queue.remove();
 			try {
-				for (int x : DataStore.getInstance().getAdjacentUndirected(u, EdgeTypeGroup.NORMALONLY)) {
+				for (int x : ds.getAdjacentUndirected(u, EdgeTypeGroup.NORMALONLY)) {
 					if (!visited.contains(x)) {
 						queue.add(x);
 						visited.add(x);
 						gnToParent.put(x, u);
 					}
-					if (lmToPath.keySet().contains(x)) {
+					if (peelToLmToPath.get(level).keySet().contains(x)) {
 						closestlm = x;
 						landmarkFound = true;
 						break;
@@ -150,7 +179,7 @@ public class CentroidPathService {
 		}
 
 		ArrayList<Integer> output_path = new ArrayList<>(pathToLM);
-		output_path.addAll(lmToPath.get(closestlm));
+		output_path.addAll(peelToLmToPath.get(level).get(closestlm));
 		LOGGER.info("output_path: " + output_path.toString());
 		return output_path;
 
@@ -208,7 +237,7 @@ public class CentroidPathService {
 			if (null != path_ints && path_ints.contains(gn_int)) {
 				writer.write("\",\"path\":\"true");
 			}
-			if (lmToPath.containsKey(gn_int)) {
+			if (peelToLmToPath.get(0).containsKey(gn_int)) {
 				writer.write("\",\"landmark\":\"true");
 			}
 			writer.write("\"}");

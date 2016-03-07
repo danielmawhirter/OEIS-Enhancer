@@ -3,7 +3,7 @@ document.getElementById("addToRelationViewButton").onclick = addToPathView;
 document.getElementById("resumeForceButton").onclick = resumeForce;
 document.getElementById("stopForceButton").onclick = stopForce;
 var textField = document.getElementById("sequenceId");
-
+var peelSelect = document.getElementById("peelSelection");
 
 var additionMade = false, additionPending = false;
 var primaryNodes = null;
@@ -37,8 +37,17 @@ function stopForce() {
 
 document.getElementById("showTreeButton").onclick = function() {
 	console.log("Show Tree");
-	d3.json("centroidPathAddition/getLandmarks", mergeNodesLinks);
+	d3.json("centroidPathService/getLandmarks", mergeNodesLinks);
 }
+
+d3.json("centroidPathService/peelLevels", function(error, data) {
+	if(error) return console.log(error);
+	for(var i = 0; i < data; i++) {
+		var option = document.createElement("option");
+		option.text = i;
+		peelSelect.add(option);
+	}
+});
 
 // Path View
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -169,23 +178,8 @@ function pathLayout() {
 		// updates drawn locations based on current positions in FDL
 		if (additionMade)
 			update();
-		/*
-		 * link_elements.attr("x1", function(d) { return d.source.x;
-		 * }).attr("y1", function(d) { return d.source.y; }).attr("x2",
-		 * function(d) { return d.target.x; }).attr("y2", function(d) { return
-		 * d.target.y; });
-		 */
+		
 		link_elements.attr('d', function(d) {
-			/*
-			 * var deltaX = d.target.x - d.source.x, deltaY = d.target.y -
-			 * d.source.y, dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY),
-			 * normX = deltaX / dist, normY = deltaY / dist, sourcePadding =
-			 * d.left ? 17 : 12, targetPadding = d.right ? 17 : 12, sourceX =
-			 * d.source.x + (sourcePadding * normX), sourceY = d.source.y +
-			 * (sourcePadding * normY), targetX = d.target.x - (targetPadding *
-			 * normX), targetY = d.target.y - (targetPadding * normY);
-			 */
-
 			return 'M' + d.source.x + ',' + d.source.y + 'L' + d.target.x + ','
 					+ d.target.y;
 		});
@@ -299,8 +293,7 @@ function pathLayout() {
 			'keydown',
 			function() {
 				var step = 20;
-				var key = d3.event.key || d3.event.keyCode; // safari doesn't
-				// know .key
+				var key = d3.event.key || d3.event.keyCode;
 				if (document.activeElement == textField)
 					return;
 				switch (key) {
@@ -338,7 +331,6 @@ function pathLayout() {
 			return nodeSize / currentZoomLevel;
 	}
 
-	// deal with d3, check boolean flag on tick
 }
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // End Path View
@@ -360,37 +352,18 @@ function addToPathView() {
 	}
 	var addedSequence = textField.value;
 	if(isNaN(addedSequence)) {
-		alert(addedSewuence + "is not a sequence number");
+		alert(addedSequence + "is not a sequence number");
 		return;
 	}
 	additionPending = true;
 	textField.value = "";
 	// console.log(nodes);
 
-	// queryString = "pathAddition/" + addedSequence + "/";
-	if (nodes.length == 0)
-		existingString = "NONE";
-	else {
-		existingString = "";
-		first = true;
-		for (i = 0; i < nodes.length; i++) {
-			if (nodes[i].path) {
-				if (first) {
-					first = false;
-				} else {
-					existingString = existingString.concat("-");
-				}
-				existingString = existingString
-						.concat(nodes[i].name.split("-")[0]);
-			}
-		}
-	}
 	primaryNodes.push(addedSequence);
-	d3.json("centroidPathAddition").header("Content-Type", "application/json").post(
+	d3.json("centroidPathService").header("Content-Type", "application/json").post(
 			JSON.stringify({
 				newNode : addedSequence,
-				existing : existingString,
-				includeNeighborhoods : false
+				peel: parseInt(peelSelect.options[peelSelect.selectedIndex].text) || 0
 			}), mergeNodesLinks);
 	// add to global nodes/links lists, set boolean flag, call force.resume
 }
