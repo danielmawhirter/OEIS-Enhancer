@@ -100,7 +100,7 @@ public class CentroidPathService {
 			all.addAll(peelToLmToPath.get(level).get(lm));
 		}
 		Graph graph = buildGraph(all);
-		return Response.ok(finalJSON(graph, null, timeStart)).build();
+		return Response.ok(finalJSON(graph, null, timeStart, level)).build();
 	}
 
 	@POST
@@ -123,7 +123,7 @@ public class CentroidPathService {
 		Collection<Integer> path = getPath(newNode, peelLevel);
 		Set<Integer> path_ints = new HashSet<Integer>(path);
 		Graph graph = buildGraph(path_ints);
-		return Response.ok(finalJSON(graph, path_ints, timeStart)).build();
+		return Response.ok(finalJSON(graph, path_ints, timeStart, peelLevel)).build();
 	}
 	
 	@Path("peelLevels")
@@ -183,7 +183,7 @@ public class CentroidPathService {
 		return output_path;
 	}
 
-	private void writeNodesJSON(Graph graph, Set<Integer> path_ints, Writer writer) throws IOException {
+	private void writeNodesJSON(Graph graph, Set<Integer> path_ints, Writer writer, int level) throws IOException {
 		LinkedList<Integer> wordNodes = new LinkedList<>();
 		for (GraphNode gn : graph.getNodeSet()) {
 			wordNodes.add(Integer.parseInt(gn.id));
@@ -235,7 +235,7 @@ public class CentroidPathService {
 			if (null != path_ints && path_ints.contains(gn_int)) {
 				writer.write("\",\"path\":\"true");
 			}
-			if (peelToLmToPath.get(0).containsKey(gn_int)) {
+			if (peelToLmToPath.get(level).containsKey(gn_int)) {
 				writer.write("\",\"landmark\":\"true");
 			}
 			writer.write("\"}");
@@ -255,14 +255,14 @@ public class CentroidPathService {
 		}
 	}
 
-	private StreamingOutput finalJSON(final Graph graph, final Set<Integer> path_ints, final long timeStart) {
+	private StreamingOutput finalJSON(final Graph graph, final Set<Integer> path_ints, final long timeStart, final int level) {
 		StreamingOutput stream = new StreamingOutput() {
 			@Override
 			public void write(OutputStream os) throws IOException, WebApplicationException {
 				Writer writer = new BufferedWriter(new OutputStreamWriter(os));
 				if (null != graph) {
 					writer.write("{\n\"nodes\":[\n");
-					writeNodesJSON(graph, path_ints, writer);
+					writeNodesJSON(graph, path_ints, writer, level);
 					writer.write("], \"links\":[\n");
 					writeEdgesJSON(graph, writer);
 					writer.write("]\n}");
