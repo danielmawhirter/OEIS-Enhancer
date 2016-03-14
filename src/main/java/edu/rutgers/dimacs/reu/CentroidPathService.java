@@ -1,13 +1,10 @@
 package edu.rutgers.dimacs.reu;
 
-import java.io.BufferedWriter;
+
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
-import java.sql.SQLException;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -16,23 +13,20 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.LinkedList;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.ejb.Lock;
 import javax.ejb.Singleton;
-import javax.naming.NamingException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.StreamingOutput;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -47,7 +41,6 @@ import static javax.ejb.LockType.READ;
 public class CentroidPathService {
 	private static final Logger LOGGER = Logger.getLogger(CentroidPathService.class.getName());
 	private final ArrayList<Map<Integer, ArrayList<Integer>>> peelToLmToPath;
-	private final DataStore ds;
 
 	@SuppressWarnings("unchecked")
 	public CentroidPathService() {
@@ -65,7 +58,6 @@ public class CentroidPathService {
 			}
 			peelToLmToPath = levels;
 		}
-		ds = DataStore.getInstance();
 		LOGGER.info("Centroid Path Service Instanciated");
 	}
 
@@ -90,17 +82,40 @@ public class CentroidPathService {
 	@GET
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response getLandmarks(@QueryParam("peel") final int peel) {
+		long timeStart = System.nanoTime();
 		int level = peel;
 		if(level < 0 || level >= peelToLmToPath.size()) {
 			level = 0;
 		}
-		long timeStart = System.nanoTime();
 		Set<Integer> all = new HashSet<>(peelToLmToPath.get(level).keySet());
 		for (Integer lm : peelToLmToPath.get(level).keySet()) {
 			all.addAll(peelToLmToPath.get(level).get(lm));
 		}
-		Graph graph = buildGraph(all);
-		return Response.ok(finalJSON(graph, null, timeStart, level)).build();
+		Graph graph = StreamingUtility.buildGraph(all);
+		return Response.ok(StreamingUtility.finalJSON(graph, null, peelToLmToPath.get(level).keySet(), timeStart)).build();
+	}
+	
+	@Path("getNeighbors")
+	@GET
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response getNeighbors(@QueryParam("vertex") final int vertex) {
+		long timeStart = System.nanoTime();
+		Set<Integer> vertices = new HashSet<>();
+		Set<Integer> path_ints = new HashSet<>();
+		vertices.add(vertex);
+		path_ints.add(vertex);
+		try {
+			Iterable<Integer> it = DataStore.getInstance()
+					.getAdjacentUndirected(vertex, EdgeTypeGroup.NORMALONLY);
+			for(Integer n : it) {
+				vertices.add(n);
+			}
+		} catch (ExecutionException e) {
+			LOGGER.log(Level.SEVERE, "Exception thrown during getNeighbors", e);
+			return Response.serverError().build();
+		}
+		Graph graph = StreamingUtility.buildGraph(vertices);
+		return Response.ok(StreamingUtility.finalJSON(graph, path_ints, null, timeStart)).build();
 	}
 
 	@POST
@@ -122,8 +137,8 @@ public class CentroidPathService {
 		LOGGER.info("query: " + input);
 		Collection<Integer> path = getPath(newNode, peelLevel);
 		Set<Integer> path_ints = new HashSet<Integer>(path);
-		Graph graph = buildGraph(path_ints);
-		return Response.ok(finalJSON(graph, path_ints, timeStart, peelLevel)).build();
+		Graph graph = StreamingUtility.buildGraph(path_ints);
+		return Response.ok(StreamingUtility.finalJSON(graph, path_ints, peelToLmToPath.get(peelLevel).keySet(), timeStart)).build();
 	}
 	
 	@Path("peelLevels")
@@ -147,7 +162,7 @@ public class CentroidPathService {
 		while (!queue.isEmpty()) {
 			Integer u = queue.remove();
 			try {
-				for (int x : ds.getAdjacentUndirected(u, EdgeTypeGroup.NORMALONLY)) {
+				for (int x : DataStore.getInstance().getAdjacentUndirected(u, EdgeTypeGroup.NORMALONLY)) {
 					if (!visited.contains(x)) {
 						queue.add(x);
 						visited.add(x);
@@ -183,21 +198,19 @@ public class CentroidPathService {
 		return output_path;
 	}
 
-	private void writeNodesJSON(Graph graph, Set<Integer> path_ints, Writer writer, int level) throws IOException {
+	
+	
+	/*private void labelVertices(Graph graph) {
 		LinkedList<Integer> wordNodes = new LinkedList<>();
 		for (GraphNode gn : graph.getNodeSet()) {
-			wordNodes.add(Integer.parseInt(gn.id));
+			wordNodes.add(Integer.parseInt(gn.toString()));
 		}
 		Map<Integer, Map<String, Integer>> allWords = null;
-		Map<Integer, String> descriptions = null;
 		try {
 			allWords = ds.getWordMultiSet(wordNodes);
-			descriptions = ds.getDescription(wordNodes);
 		} catch (SQLException | NamingException e) {
 			LOGGER.warning("Words and descriptions not available from DataStore");
 		}
-
-		boolean first = true;
 		for (GraphNode gn : graph.getNodeSet()) {
 			int gn_int = Integer.parseInt(gn.toString());
 			StringBuilder label = new StringBuilder();
@@ -219,95 +232,9 @@ public class CentroidPathService {
 					label.append("-");
 					label.append(selected);
 				}
-				//gn.id += label.toString();
-			}
-			if (first) {
-				first = false;
-			} else {
-				writer.write(",");
-			}
-			writer.write("\n{\"name\":\"");
-			writer.write(gn.toString());
-			if(descriptions != null) {
-				writer.write("\",\"description\":\"");
-				writer.write(descriptions.get(gn_int));
-			}
-			if (null != path_ints && path_ints.contains(gn_int)) {
-				writer.write("\",\"path\":\"true");
-			}
-			if (peelToLmToPath.get(level).containsKey(gn_int)) {
-				writer.write("\",\"landmark\":\"true");
-			}
-			writer.write("\"}");
-		}
-	}
-
-	private void writeEdgesJSON(Graph graph, Writer writer) throws IOException {
-		boolean first = true;
-		TreeSet<Edge> orderedEdges = new TreeSet<>(graph.getEdgeSet());
-		for (Edge edge : orderedEdges) {
-			if (first) {
-				first = false;
-				writer.write("\n{" + edge.toString() + "}");
-			} else {
-				writer.write(",\n{" + edge.toString() + "}");
+				gn.label = label.toString();
 			}
 		}
-	}
-
-	private StreamingOutput finalJSON(final Graph graph, final Set<Integer> path_ints, final long timeStart, final int level) {
-		StreamingOutput stream = new StreamingOutput() {
-			@Override
-			public void write(OutputStream os) throws IOException, WebApplicationException {
-				Writer writer = new BufferedWriter(new OutputStreamWriter(os));
-				if (null != graph) {
-					writer.write("{\n\"nodes\":[\n");
-					writeNodesJSON(graph, path_ints, writer, level);
-					writer.write("], \"links\":[\n");
-					writeEdgesJSON(graph, writer);
-					writer.write("]\n}");
-					writer.flush();
-					writer.close();
-					LOGGER.info("algorithm and response with JSON took "
-							+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000)) + "ms");
-				} else {
-					writer.write("{\"error\":\"Graph not available: DataStore failure\"}");
-				}
-			}
-		};
-		return stream;
-	}
-
-	private Graph buildGraph(Set<Integer> ints) {
-		Graph graph = new Graph(false, "");
-
-		// add all the nodes
-		for (int n : ints) {
-			graph.addNode(Integer.toString(n));
-		}
-
-		Map<Integer, Collection<Integer>> refs;
-		try {
-			refs = ds.getCrossrefsWithin(ints);
-		} catch (ExecutionException e) {
-			LOGGER.warning("Unable to get crossrefs from DataStore");
-			return null;
-		}
-
-		// for each node, get the neighborhood
-		// and if the neighbor_gn exists, add the edge
-		for (GraphNode gn : graph.getNodeSet()) {
-			int gn_int = Integer.parseInt(gn.toString());
-			for (int neighbor_int : refs.get(gn_int)) {
-				String neighbor_str = Integer.toString(neighbor_int);
-				GraphNode neighbor_gn = graph.getNode(neighbor_str);
-				if (neighbor_gn != null) {
-					graph.addEdge(gn, neighbor_gn);
-				}
-			}
-		}
-
-		return graph;
-	}
+	}*/
 
 }

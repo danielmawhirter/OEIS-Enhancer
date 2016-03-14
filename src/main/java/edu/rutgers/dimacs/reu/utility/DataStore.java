@@ -32,7 +32,7 @@ public class DataStore {
 			.getName());
 	private final LoadingCache<Integer, ImmutableSet<Edge>> crossrefCache;
 
-	private static DataStore instance = new DataStore(); //static init singleton
+	private static DataStore instance = new DataStore(); //static singleton
 
 	private DataStore() {
 		crossrefCache = CacheBuilder.newBuilder().maximumWeight(10000000)

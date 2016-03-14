@@ -5,17 +5,17 @@ import java.util.HashSet;
 import java.util.LinkedList;
 
 public class GraphNode implements Comparable<GraphNode> {
-	public String id, clusterId;
+	private String id;
+	public String label = null;
 	private HashSet<Edge> incidentEdges;
-	//private TreeSet<GraphNode> neighbors;
+	private HashSet<String> properties;
 	public int weight, int_edge_wsum;
-	//private boolean removed = false;
 	
 	public GraphNode(String id) {
 		super();
 		this.id = id;
-		//this.neighbors = new TreeSet<>();
 		this.incidentEdges = new HashSet<>();
+		this.properties = new HashSet<>();
 	}
 	
 	public GraphNode(GraphNode that, HashSet<Edge> edges) {
@@ -43,23 +43,6 @@ public class GraphNode implements Comparable<GraphNode> {
 		return o instanceof GraphNode && ((GraphNode)o).id.equals(this.id);
 	}
 	
-	/*public void remove() {
-		removed = true;
-	}
-	
-	public boolean removed() {
-		return removed;
-	}*/
-	
-	/*public Collection<GraphNode> getNeighbors() {
-		Collection<GraphNode> removed = new LinkedList<>();
-		for(GraphNode gn : neighbors) {
-			if(gn.removed()) removed.add(gn);
-		}
-		neighbors.removeAll(removed);
-		return neighbors;
-	}*/
-	
 	public Collection<GraphNode> getNeighbors() {
 		LinkedList<GraphNode> neighbors = new LinkedList<>();
 		for(Edge e : incidentEdges) {
@@ -85,7 +68,11 @@ public class GraphNode implements Comparable<GraphNode> {
 		return incidentEdges.remove(e);
 	}
 	
-	/*public boolean neighbors(GraphNode gn) {
-		return neighbors.contains(gn);
-	}*/
+	public void addProperty(String prop) {
+		this.properties.add(prop);
+	}
+	
+	public boolean hasProperty(String prop) {
+		return this.properties.contains(prop);
+	}
 }

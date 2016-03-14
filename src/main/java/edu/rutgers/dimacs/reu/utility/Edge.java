@@ -26,7 +26,7 @@ public abstract class Edge implements Comparable<Edge> {
 	}
 
 	public final String getId() {
-		return "{" + src.id + "," + dest.id + "}";
+		return "{" + src.toString() + "," + dest.toString() + "}";
 	}
 
 	@Override

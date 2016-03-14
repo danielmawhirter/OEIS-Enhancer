@@ -133,7 +133,7 @@ public class Graph {
 		while(removal.size() > 0) {
 			removeEdge(removal.pop());
 		}
-		idToNode.remove(n.id);
+		idToNode.remove(n.toString());
 	}
 	
 	public void removeEdge(GraphNode src, GraphNode dest) {

@@ -1,7 +1,13 @@
 
 document.getElementById("addToRelationViewButton").onclick = addToPathView;
-document.getElementById("resumeForceButton").onclick = resumeForce;
-document.getElementById("stopForceButton").onclick = stopForce;
+document.getElementById("resumeForceButton").onclick = function() {
+	if (force && force.resume)
+		force.resume();
+};
+document.getElementById("stopForceButton").onclick = function() {
+	if (force && force.stop)
+		force.stop();
+};
 var textField = document.getElementById("sequenceId");
 var peelSelect = document.getElementById("peelSelection");
 
@@ -11,31 +17,6 @@ var force = null;
 var nodes = null, links = null;
 var hist = [];
 
-function clearSVG() {
-	d3.select("svg").remove();
-	additionMade = false;
-	enableAddition = false;
-	if (force)
-		force.stop();
-	force = null;
-	nodes = null;
-	links = null;
-	document.getElementById("incFontSize").onclick = null;
-	document.getElementById("decFontSize").onclick = null;
-	document.getElementById("incNodeSize").onclick = null;
-	document.getElementById("decNodeSize").onclick = null;
-}
-
-function resumeForce() {
-	if (force)
-		force.resume();
-}
-
-function stopForce() {
-	if (force)
-		force.stop();
-}
-
 document.getElementById("showTreeButton").onclick = function() {
 	console.log("Show Tree");
 	var p_level = parseInt(peelSelect.options[peelSelect.selectedIndex].text) || 0;
@@ -43,7 +24,10 @@ document.getElementById("showTreeButton").onclick = function() {
 }
 
 d3.json("centroidPathService/peelLevels", function(error, data) {
-	if(error) return console.log(error);
+	if(error) {
+		alert("Cannot get number of peel levels from server");
+		console.log(error);
+	}
 	for(var i = 0; i < data; i++) {
 		var option = document.createElement("option");
 		option.text = i;
@@ -54,7 +38,6 @@ d3.json("centroidPathService/peelLevels", function(error, data) {
 // Path View
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 function pathLayout() {
-	clearSVG();
 	console.log("starting path");
 	var width = window.innerWidth, height = window.innerHeight, root;
 	nodes = [];
@@ -105,41 +88,13 @@ function pathLayout() {
 		nodeSize /= sizeMultiplier;
 		refreshAfterZoom();
 	};
-	document.getElementById("addNeighborhoodsButton").onclick = function() {
-		if (nodes.length == 0)
-			existingString = "NONE";
-		else {
-			existingString = "";
-			first = true;
-			for (i = 0; i < nodes.length; i++) {
-				if (nodes[i].path) {
-					if (first) {
-						first = false;
-					} else {
-						existingString = existingString.concat("-");
-					}
-					existingString = existingString
-							.concat(nodes[i].name.split("-")[0]);
-				}
-			}
-		}
-		for(i = 0; i < nodes.length; i++) {
-			if(nodes[i].path) {
-				nodes[i].fixed = true;
-			}
-		}
-		d3.json("neighborhoods").header("Content-Type", "application/json").post(
-				JSON.stringify({
-					existing : existingString,
-					egonets : false
-				}), mergeNodesLinks);
-	};
 	
 	document.getElementById("relationViewButton").onclick = function() {
 		console.log("Clear View");
 		nodes = [];
 		links = [];
 		hist = [];
+		resumeForce();
 		additionMade = false;
 		additionPending = false;
 	}
@@ -268,19 +223,29 @@ function pathLayout() {
 		link_elements.attr("stroke-width", strokeWidth).style("stroke", stroke);
 	}
 
-	function rightClick(d) {
-		d3.event.preventDefault();
-		d.fixed = false;
-	}
-
 	function click(d) {
 		if (d3.event.defaultPrevented)
 			return;
-		var num = d.name.split("-")[0];
-		if (isNaN(num))
-			alert("Node id: " + num);
-		else
-			window.open("http://oeis.org/A" + num);
+		d3.contextMenu([
+		                {
+		                	title: "Open OEIS Page",
+		                	action: function(elm, d, i) {
+		                		console.log("Open OEIS Page for vertex: " + d.name);
+		                		window.open("http://oeis.org/A" + d.name.split("-")[0]);
+		        	        }
+		        	    }, {
+		        	    	title: 'Show Egonet',
+		        	    	action: function(elm, d, i) {
+		        	    		d3.json("centroidPathService/getNeighbors?vertex=" + d.name.split("-")[0], mergeNodesLinks);
+		        	    		console.log("Show egonet for vertex: " + d.name);
+		        	    		d.path = true;
+		        	    	}
+		        	    } ])(d);
+	}
+	
+	function rightClick(d) {
+		d3.event.preventDefault();
+		d.fixed = false;
 	}
 
 	function dragstarted(d) {
@@ -435,6 +400,7 @@ function mergeNodesLinks(error, json) {
 	if (error) {
 		alert("Sequence " + textField.value + " not found");
 		console.log(error);
+		additionPending = false;
 		return;
 	}
 	
