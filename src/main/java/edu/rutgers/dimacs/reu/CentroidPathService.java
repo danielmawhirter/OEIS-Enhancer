@@ -117,25 +117,25 @@ public class CentroidPathService {
 		Graph graph = StreamingUtility.buildGraph(vertices);
 		return Response.ok(StreamingUtility.finalJSON(graph, path_ints, null, timeStart)).build();
 	}
-
-	@POST
+	
+	@Path("shortestPath")
+	@GET
 	@Produces(MediaType.APPLICATION_JSON)
-	@Consumes(MediaType.APPLICATION_JSON)
-	public Response getAddition(String input) {
-		JSONObject obj = new JSONObject(input);
-		String newNode;
-		try {
-			newNode = obj.getString("newNode");
-		} catch(JSONException e) {
-			return Response.serverError().build();
-		}
-		int peelLevel = 0;
-		try {
-			peelLevel = obj.getInt("peel");
-		} catch(JSONException e) {}
+	public Response shortestPath(@QueryParam("one") final int one, @QueryParam("two") final int two) {
 		long timeStart = System.nanoTime();
-		LOGGER.info("query: " + input);
-		Collection<Integer> path = getPath(newNode, peelLevel);
+		LOGGER.info("one: " + one + " two: " + two);
+		Collection<Integer> path = getShortestPath(one, two);
+		Set<Integer> path_ints = new HashSet<Integer>(path);
+		Graph graph = StreamingUtility.buildGraph(path_ints);
+		return Response.ok(StreamingUtility.finalJSON(graph, path_ints, null, timeStart)).build();
+	}
+
+	@GET
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response getAddition(@QueryParam("vertex") final int vertex, @QueryParam("peel") final int peelLevel) {
+		long timeStart = System.nanoTime();
+		LOGGER.info("vertex: " + vertex + " peel: " + peelLevel);
+		Collection<Integer> path = getLandmarkPath(vertex, peelLevel);
 		Set<Integer> path_ints = new HashSet<Integer>(path);
 		Graph graph = StreamingUtility.buildGraph(path_ints);
 		return Response.ok(StreamingUtility.finalJSON(graph, path_ints, peelToLmToPath.get(peelLevel).keySet(), timeStart)).build();
@@ -148,15 +148,15 @@ public class CentroidPathService {
 		return Integer.toString(peelToLmToPath.size());
 	}
 
-	private Collection<Integer> getPath(String inputStr, int level) {
-		int input = Integer.parseInt(inputStr);
+	//landmark-driven pseudo shortest path
+	private Collection<Integer> getLandmarkPath(int vertex, int level) {
 		Queue<Integer> queue = new LinkedList<Integer>(); 
 		HashSet<Integer> visited = new HashSet<Integer>();
 		HashMap<Integer, Integer> gnToParent = new HashMap<Integer, Integer>();
 		  
-		queue.add(input);
-		visited.add(input);
-		gnToParent.put(input, input);
+		queue.add(vertex);
+		visited.add(vertex);
+		gnToParent.put(vertex, vertex);
 		int closestlm = 0;
 		boolean landmarkFound = false;
 		while (!queue.isEmpty()) {
@@ -181,14 +181,14 @@ public class CentroidPathService {
 		}
 
 		ArrayList<Integer> pathToLM = new ArrayList<Integer>();
-		pathToLM.add(input);
+		pathToLM.add(vertex);
 		
 		if (!landmarkFound)
 			return pathToLM;
 
 		// retrieve the path to the found landmark
 		int curr = closestlm;
-		while (curr != input) {
+		while (curr != vertex) {
 			pathToLM.add(curr);
 			curr = gnToParent.get(curr);
 		}
@@ -196,6 +196,50 @@ public class CentroidPathService {
 		ArrayList<Integer> output_path = new ArrayList<>(pathToLM);
 		output_path.addAll(peelToLmToPath.get(level).get(closestlm));
 		return output_path;
+	}
+	
+	//bfs-driven true shortest path
+	private Collection<Integer> getShortestPath(int one, int two) {
+		Queue<Integer> queue = new LinkedList<Integer>(); 
+		HashSet<Integer> visited = new HashSet<Integer>();
+		HashMap<Integer, Integer> gnToParent = new HashMap<Integer, Integer>();
+		  
+		queue.add(one);
+		visited.add(one);
+		gnToParent.put(one, one);
+		boolean found = false;
+		while (!queue.isEmpty() && !found) {
+			Integer u = queue.remove();
+			try {
+				for (int x : DataStore.getInstance().getAdjacentUndirected(u, EdgeTypeGroup.NORMALONLY)) {
+					if (!visited.contains(x)) {
+						queue.add(x);
+						visited.add(x);
+						gnToParent.put(x, u);
+					}
+					if(two == x) {
+						found = true;
+						break;
+					}
+				}
+			} catch (ExecutionException e) {
+				e.printStackTrace();
+			}
+		}
+
+		LinkedList<Integer> path = new LinkedList<Integer>();
+		path.add(one);
+		
+		if (!found)
+			return path;
+
+		// retrieve the path to the found landmark
+		int curr = two;
+		while (curr != one) {
+			path.add(curr);
+			curr = gnToParent.get(curr);
+		}
+		return path;
 	}
 
 	

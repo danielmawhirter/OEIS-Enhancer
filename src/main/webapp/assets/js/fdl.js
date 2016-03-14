@@ -1,5 +1,6 @@
 
 document.getElementById("addToRelationViewButton").onclick = addToPathView;
+document.getElementById("addShortestPathButton").onclick = addShortestPath;
 document.getElementById("resumeForceButton").onclick = function() {
 	if (force && force.resume)
 		force.resume();
@@ -9,6 +10,8 @@ document.getElementById("stopForceButton").onclick = function() {
 		force.stop();
 };
 var textField = document.getElementById("sequenceId");
+var textFieldOne = document.getElementById("sequenceIdOne");
+var textFieldTwo = document.getElementById("sequenceIdTwo");
 var peelSelect = document.getElementById("peelSelection");
 
 var additionMade = false, additionPending = false;
@@ -57,8 +60,8 @@ function pathLayout() {
 	}).on("dragstart", dragstarted).on("drag", dragged).on("dragend", dragend);
 
 	var currentZoomLevel = 1.0;
-	var fontSize = 1.0;
-	var nodeSize = 5.0;
+	var fontSize = 0.75;
+	var nodeSize = 3.0;
 	var sizeMultiplier = 1.1;
 
 	var svg = d3.select("body").append("svg");
@@ -301,8 +304,10 @@ function pathLayout() {
 			});
 
 	function size(d) {
-		if (d.path)
-			return nodeSize * 2.4 / currentZoomLevel;
+		if(d.path)
+			return nodeSize * 2.8 / currentZoomLevel;
+		else if(d.landmark)
+			return nodeSize * 1.9 / currentZoomLevel;
 		else
 			return nodeSize / currentZoomLevel;
 	}
@@ -337,15 +342,41 @@ function addToPathView() {
 	// console.log(nodes);
 
 	primaryNodes.push(addedSequence);
-	d3.json("centroidPathService").header("Content-Type", "application/json").post(
-			JSON.stringify({
-				newNode : addedSequence,
-				peel: parseInt(peelSelect.options[peelSelect.selectedIndex].text) || 0
-			}), mergeNodesLinks);
+	var peelLevel = parseInt(peelSelect.options[peelSelect.selectedIndex].text) || 0;
+	d3.json("centroidPathService?vertex=" + addedSequence + "&peel=" + peelLevel, mergeNodesLinks);
 	// add to global nodes/links lists, set boolean flag, call force.resume
 }
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // End Add To Path View
+
+//Add Shortest Path
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+function addShortestPath() {
+	if (additionPending) {
+		alert("hold on, waiting for server");
+		return;
+	}
+	if (isNaN(textFieldOne.value)) {
+		alert(textFieldOne.value + " is not a sequence number");
+		return;
+	}
+	if (isNaN(textFieldTwo.value)) {
+		alert(textFieldTwo.value + " is not a sequence number");
+		return;
+	}
+	var seqOne = parseInt(textFieldOne.value);
+	var seqTwo = parseInt(textFieldTwo.value);
+	additionPending = true;
+	primaryNodes.push(textFieldOne.value);
+	primaryNodes.push(textFieldTwo.value);
+	textFieldOne.value = "";
+	textFieldTwo.value = "";
+
+	d3.json("centroidPathService/shortestPath?one=" + seqOne + "&two=" + seqTwo, mergeNodesLinks);
+	// add to global nodes/links lists, set boolean flag, call force.resume
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//End Add Shortest Path
 
 // merge arrays of links sorted lexically by id
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

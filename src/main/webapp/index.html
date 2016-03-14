@@ -5,7 +5,6 @@
     <title>OEIS Explorer</title>
     <link rel="stylesheet" href="assets/css/graph.css">
     <link rel="stylesheet" href="assets/css/menu.css">
-    <link rel="stylesheet" href="assets/css/table.css">
     <link rel="stylesheet" href="assets/css/d3-context-menu.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js" charset="utf-8"></script>
     <script src="assets/js/d3-context-menu.js"></script>
@@ -15,15 +14,26 @@
       <div class="menu">
         <div>||| Menu |||</div>
         <div class="popup">
-          <select id="peelSelection">
-            <option value="" disabled selected>Select a peel value</option>
-          </select>
-          <input id="sequenceId" type="text" size="15" placeholder="Sequence to Add">
-          <input class="menuButton" id="addToRelationViewButton" type="button" value="Add Sequence to View" />
-          <input class="menuButton" id="resumeForceButton" type="button" value="Resume Force" />
-          <input class="menuButton" id="stopForceButton" type="button" value="Stop Force" />
-          <input class="menuButton" id="showTreeButton" type="button" value="Show Tree" />
-          <input class="menuButton" id="relationViewButton" type="button" value="Clear View" />
+          <p class="bordered">
+            <select id="peelSelection">
+              <option value="" disabled selected>Select a peel value</option>
+            </select>
+            <input class="menuButton" id="showTreeButton" type="button" value="Show Tree" />
+          </p>
+          <p class="bordered">
+            <input id="sequenceId" type="text" size="15" placeholder="Sequence to Add">
+            <input class="menuButton" id="addToRelationViewButton" type="button" value="Add Sequence to View" />
+          </p>
+          <p class="bordered">
+            <input id="sequenceIdOne" type="text" size="15" placeholder="Source sequence">
+            <input id="sequenceIdTwo" type="text" size="15" placeholder="Destination sequence">
+            <input class="menuButton" id="addShortestPathButton" type="button" value="Show Shortest Path" />
+          </p>
+          <p class="bordered">
+            <input class="menuButton" id="resumeForceButton" type="button" value="Resume Force" />
+            <input class="menuButton" id="stopForceButton" type="button" value="Stop Force" />
+            <input class="menuButton" id="relationViewButton" type="button" value="Clear View" />
+          </p>
         </div>
       </div>
     </div>

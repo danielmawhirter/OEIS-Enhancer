@@ -11,7 +11,6 @@ div.menu {
   float: left;
   margin-left: 1.0em;
   margin-top: 1.0em;
-  /*text-align:center;*/
 }
 
 div.menu:hover div:first-child {
@@ -24,7 +23,7 @@ div.menu div.popup {
 
 div.menu:hover div.popup { 
   display: block; 
-  background-color: #00FF99; 
+  background-color: #00FF99;
 }
 
 div.menu div {
@@ -47,11 +46,11 @@ div.popup div, div.popup select {
 }
 
 div.popup div + div, div.popup select + input {
-  margin-top: 10px; 
+  margin-top: 5px; 
 } 
 
 div.popup div + div, div.popup input + input {
-  margin-top: 10px; 
+  margin-top: 5px; 
 } 
 
 .menuButton {
@@ -95,6 +94,15 @@ div.popup div + div, div.popup input + input {
 .menuButton:active {
   position:relative;
   top:1px;
+}
+
+.bordered {
+  border-style: solid;
+  border-color: black;
+  border-width: 1px 1px 1px 1px;
+  text-align: center;
+  padding: 5px 3px 5px 0px;
+  margin: 5px 0px 5px 0px;
 }
 
 div.controls {
