@@ -6,6 +6,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.Map;
@@ -19,10 +20,12 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.StreamingOutput;
 
 public class StreamingUtility {
-	
+
 	private static final Logger LOGGER = Logger.getLogger(StreamingUtility.class.getName());
-	
-	private static void writeNodesJSON(Graph graph, Set<Integer> path_ints, Set<Integer> landmark_ints, Writer writer) throws IOException {
+
+	private static void writeNodesJSON(Graph graph, Set<Integer> path_ints, Set<Integer> landmark_ints,
+			final Map<Integer, Double> nodeWeight, final Map<Integer, Double> lmWeight,
+			ArrayList<Integer> neighborhoodSizes, Writer writer) throws IOException {
 		LinkedList<Integer> wordNodes = new LinkedList<>();
 		for (GraphNode gn : graph.getNodeSet()) {
 			wordNodes.add(Integer.parseInt(gn.toString()));
@@ -42,9 +45,10 @@ public class StreamingUtility {
 			} else {
 				writer.write(",");
 			}
+
 			writer.write("\n{\"name\":\"");
 			writer.write(gn.toString());
-			if(descriptions != null) {
+			if (descriptions != null) {
 				writer.write("\",\"description\":\"");
 				writer.write(descriptions.get(gn_int));
 			}
@@ -53,6 +57,16 @@ public class StreamingUtility {
 			}
 			if (null != landmark_ints && landmark_ints.contains(gn_int)) {
 				writer.write("\",\"landmark\":\"true");
+				writer.write("\",\"landmarkWeight\":\"");
+				writer.write(lmWeight.get(gn_int).toString());
+			}
+			if (null != nodeWeight && nodeWeight.containsKey(gn_int)) {
+				writer.write("\",\"nodeWeight\":\"");
+				writer.write(nodeWeight.get(gn_int).toString());
+			}
+			if (null != neighborhoodSizes && gn_int < neighborhoodSizes.size()) {
+				writer.write("\",\"neighborhoodSize\":\"");
+				writer.write(neighborhoodSizes.get(gn_int).toString());
 			}
 			writer.write("\"}");
 		}
@@ -64,21 +78,27 @@ public class StreamingUtility {
 		for (Edge edge : orderedEdges) {
 			if (first) {
 				first = false;
-				writer.write("\n{" + edge.toString() + "}");
+				writer.write("\n{");
+				writer.write(edge.toString());
+				writer.write("}");
 			} else {
-				writer.write(",\n{" + edge.toString() + "}");
+				writer.write(",\n{");
+				writer.write(edge.toString());
+				writer.write("}");
 			}
 		}
 	}
 
-	public static StreamingOutput finalJSON(final Graph graph, final Set<Integer> path_ints, final Set<Integer> landmark_ints, final long timeStart) {
+	public static StreamingOutput finalJSON(final Graph graph, final Set<Integer> path_ints,
+			final Set<Integer> landmark_ints, final Map<Integer, Double> nodeWeight,
+			final Map<Integer, Double> lmWeight, final ArrayList<Integer> neighborhoodSizes, final long timeStart) {
 		StreamingOutput stream = new StreamingOutput() {
 			@Override
 			public void write(OutputStream os) throws IOException, WebApplicationException {
 				Writer writer = new BufferedWriter(new OutputStreamWriter(os));
 				if (null != graph) {
 					writer.write("{\n\"nodes\":[\n");
-					writeNodesJSON(graph, path_ints, landmark_ints, writer);
+					writeNodesJSON(graph, path_ints, landmark_ints, nodeWeight, lmWeight, neighborhoodSizes, writer);
 					writer.write("], \"links\":[\n");
 					writeEdgesJSON(graph, writer);
 					writer.write("]\n}");

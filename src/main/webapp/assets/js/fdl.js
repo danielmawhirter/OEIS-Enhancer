@@ -1,63 +1,220 @@
-
-document.getElementById("addToRelationViewButton").onclick = addToPathView;
-document.getElementById("addShortestPathButton").onclick = addShortestPath;
-document.getElementById("resumeForceButton").onclick = function() {
-	if (force && force.resume)
-		force.resume();
-};
-document.getElementById("stopForceButton").onclick = function() {
-	if (force && force.stop)
-		force.stop();
-};
-var textField = document.getElementById("sequenceId");
-var textFieldOne = document.getElementById("sequenceIdOne");
-var textFieldTwo = document.getElementById("sequenceIdTwo");
-var peelSelect = document.getElementById("peelSelection");
-
-var additionMade = false, additionPending = false;
-var primaryNodes = null;
-var force = null;
-var nodes = null, links = null;
-var hist = [];
-
-document.getElementById("showTreeButton").onclick = function() {
-	console.log("Show Tree");
-	var p_level = parseInt(peelSelect.options[peelSelect.selectedIndex].text) || 0;
-	d3.json("centroidPathService/getLandmarks?peel=" + p_level, mergeNodesLinks);
-}
-
-d3.json("centroidPathService/peelLevels", function(error, data) {
-	if(error) {
-		alert("Cannot get number of peel levels from server");
-		console.log(error);
-	}
-	for(var i = 0; i < data; i++) {
-		var option = document.createElement("option");
-		option.text = i;
-		peelSelect.add(option);
-	}
-});
-
 // Path View
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 function pathLayout() {
-	console.log("starting path");
-	var width = window.innerWidth, height = window.innerHeight, root;
-	nodes = [];
-	links = [];
-	primaryNodes = [];
-	enableAddition = true;
-	additionMade = false;
-	additionPending = false;
+	
+	// Add To Path View
+	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	function addToPathView() {
+		if (additionPending) {
+			alert("hold on, waiting for server");
+			return;
+		}
+		if (isNaN(textField.value)) {
+			alert(textField.value + " is not a sequence number");
+			return;
+		}
+		if (primaryNodes.indexOf(textField.value) != -1) {
+			alert("already added");
+			return;
+		}
+		var addedSequence = textField.value;
+		if(isNaN(addedSequence)) {
+			alert(addedSequence + "is not a sequence number");
+			return;
+		}
+		additionPending = true;
+		hist.push(textField.value);
+		textField.value = "";
+		// console.log(nodes);
 
-	force = d3.layout.force().linkDistance(120).charge(-120).gravity(.01).on(
+		primaryNodes.push(addedSequence);
+		var peelLevel = parseInt(peelSelect.options[peelSelect.selectedIndex].text) || 0;
+		d3.json("centroidPathService?vertex=" + addedSequence + "&peel=" + peelLevel, mergeNodesLinks);
+		// add to global nodes/links lists, set boolean flag, call force.resume
+	}
+	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// End Add To Path View
+
+	//Add Shortest Path
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	function addShortestPath() {
+		if (additionPending) {
+			alert("hold on, waiting for server");
+			return;
+		}
+		if (isNaN(textFieldOne.value)) {
+			alert(textFieldOne.value + " is not a sequence number");
+			return;
+		}
+		if (isNaN(textFieldTwo.value)) {
+			alert(textFieldTwo.value + " is not a sequence number");
+			return;
+		}
+		var seqOne = parseInt(textFieldOne.value);
+		var seqTwo = parseInt(textFieldTwo.value);
+		additionPending = true;
+		primaryNodes.push(textFieldOne.value);
+		primaryNodes.push(textFieldTwo.value);
+		textFieldOne.value = "";
+		textFieldTwo.value = "";
+
+		d3.json("centroidPathService/shortestPath?one=" + seqOne + "&two=" + seqTwo, mergeNodesLinks);
+		// add to global nodes/links lists, set boolean flag, call force.resume
+	}
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	//End Add Shortest Path
+
+	// merge arrays of links sorted lexically by id
+	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	function mergeInLinks(addLinks) {
+		var newLinks = [];
+		var nodeLookup = [];
+		for (i = 0; i < nodes.length; i++) {
+			nodeLookup[nodes[i].name] = nodes[i];
+		}
+		addLinks.sort(function(a, b){
+		    if(a.source_name < b.source_name) return -1;
+		    if(a.source_name > b.source_name) return 1;
+		    if(a.target_name < b.target_name) return -1;
+		    if(a.target_name > b.target_name) return 1;
+			return 0;
+		});
+		// merging avoid duplicates
+		while (links.length > 0 && addLinks.length > 0) {
+			if (!addLinks[0].source) {
+				addLinks[0].source = nodeLookup[addLinks[0].source_name];
+				addLinks[0].target = nodeLookup[addLinks[0].target_name];
+				if(!(addLinks[0].source && addLinks[0].target)) {
+					console.log(addLinks[0].source_name + " or " + addLinks[0].target_name + " not found");
+				}
+			}
+			if (links[0].id == addLinks[0].id) {
+				newLinks.push(links.shift());
+				addLinks.shift();
+			} else if (links[0].id < addLinks[0].id) {
+				newLinks.push(links.shift());
+			} else {
+				newLinks.push(addLinks.shift());
+			}
+		}
+		if (links.length == 0) {
+			while (addLinks.length > 0) {
+				if (!addLinks[0].source) {
+					addLinks[0].source = nodeLookup[addLinks[0].source_name];
+					addLinks[0].target = nodeLookup[addLinks[0].target_name];
+				}
+				newLinks.push(addLinks.shift());
+			}
+		}
+		if (addLinks.length == 0) {
+			newLinks = newLinks.concat(links);
+		}
+		links = newLinks;
+	}
+	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	function mergeNodesLinks(error, json) {
+		if (error) {
+			alert("Sequence " + textField.value + " not found");
+			console.log(error);
+			additionPending = false;
+			return;
+		}
+		
+		//console.log(json);
+		force.stop();
+		if (json.nodes) {
+			json.nodes.sort(function(a, b){
+				if(a.name < b.name) return -1;
+				if(a.name > b.name) return 1;
+				return 0;
+			});
+			var newNodes = [];
+			while (nodes.length > 0 && json.nodes.length > 0) {
+				var name_node = nodes[0].name.split("-")[0];
+				var name_json = json.nodes[0].name.split("-")[0];
+
+				if (name_node == name_json) {
+					var current = nodes.shift();
+					var other = json.nodes.shift();
+					current.path = current.path || other.path;
+					current.description = current.description || other.description;
+					current.landmark = current.landmark || other.landmark;
+					newNodes.push(current);
+				} else if (name_node < name_json) {
+					newNodes.push(nodes.shift());
+				} else {
+					var temp = json.nodes.shift();
+					temp.x = window.innerWidth / 2;
+					temp.y = window.innerHeight / 2;
+					newNodes.push(temp);
+				}
+			}
+			if (nodes.length == 0) {
+				newNodes = newNodes.concat(json.nodes);
+			}
+			if (json.nodes.length == 0) {
+				newNodes = newNodes.concat(nodes);
+			}
+			nodes = newNodes;
+		}
+		if (json.links) {
+			mergeInLinks(json.links);
+		}
+		additionMade = true;
+		additionPending = false;
+		force.resume();
+	}
+	
+	document.getElementById("addToRelationViewButton").onclick = addToPathView;
+	document.getElementById("addShortestPathButton").onclick = addShortestPath;
+	document.getElementById("resumeForceButton").onclick = function() {
+		if (force && force.resume)
+			force.resume();
+	};
+	document.getElementById("stopForceButton").onclick = function() {
+		if (force && force.stop)
+			force.stop();
+	};
+	
+	// input fields
+	var textField = document.getElementById("sequenceId");
+	var textFieldOne = document.getElementById("sequenceIdOne");
+	var textFieldTwo = document.getElementById("sequenceIdTwo");
+	var peelSelect = document.getElementById("peelSelection");
+	
+	// behaviors
+	var force = d3.layout.force().linkDistance(120).charge(-120).gravity(.01).on(
 			"tick", tick);
-
 	var zoom = d3.behavior.zoom().scaleExtent([ 0.01, 100 ]).on("zoom", zoomed);
-
 	var drag = d3.behavior.drag().origin(function(d) {
 		return d;
 	}).on("dragstart", dragstarted).on("drag", dragged).on("dragend", dragend);
+	
+	
+	var width = window.innerWidth, height = window.innerHeight, root;
+	var additionMade = false, additionPending = false;
+	var primaryNodes = [];
+	var nodes = [], links = [];
+	var hist = [];
+	
+	document.getElementById("showTreeButton").onclick = function() {
+		console.log("Show Tree");
+		var p_level = parseInt(peelSelect.options[peelSelect.selectedIndex].text) || 0;
+		d3.json("centroidPathService/getLandmarks?peel=" + p_level, mergeNodesLinks);
+	}
+	
+	d3.json("centroidPathService/peelLevels", function(error, data) {
+		if(error) {
+			alert("Cannot get number of peel levels from server");
+			console.log(error);
+		}
+		for(var i = 0; i < data; i++) {
+			var option = document.createElement("option");
+			option.text = i;
+			peelSelect.add(option);
+		}
+	});
 
 	var currentZoomLevel = 1.0;
 	var fontSize = 0.75;
@@ -98,19 +255,9 @@ function pathLayout() {
 		links = [];
 		hist = [];
 		resumeForce();
-		additionMade = false;
+		additionMade = true;
 		additionPending = false;
 	}
-
-	svg.append('defs').append('svg:marker').attr('id', 'end-arrow').attr(
-			'viewBox', '0 -5 10 10').attr('refX', 6).attr('markerWidth', 3)
-			.attr('markerHeight', 3).attr('orient', 'auto').append('svg:path')
-			.attr('d', 'M0,-5L10,0L0,5').attr('fill', '#000');
-
-	svg.append('defs').append('svg:marker').attr('id', 'start-arrow').attr(
-			'viewBox', '0 -5 10 10').attr('refX', 4).attr('markerWidth', 3)
-			.attr('markerHeight', 3).attr('orient', 'auto').append('svg:path')
-			.attr('d', 'M10,-5L0,0L10,5').attr('fill', '#000');
 
 	resize();
 
@@ -131,13 +278,11 @@ function pathLayout() {
 		var nodeEnter = node_elements.enter().append("g").attr("class", "node")
 				.call(drag).on("click", click).on("contextmenu", rightClick);
 
-		nodeEnter.append("circle");
+		nodeEnter.append("circle").style("fill", fillColor);
 
 		nodeEnter.append("text")
-		// .attr("dx", ".35em")
-		.text(filteredText).attr("text-anchor", "left");
+			.text(filteredText).attr("text-anchor", "left");
 
-		node_elements.select("circle").style("fill", fillColor);
 		additionMade = false;
 		refreshAfterZoom();
 		console.log("showing " + nodes.length + " nodes and " + links.length + " links")
@@ -188,7 +333,7 @@ function pathLayout() {
 	}
 
 	function filteredText(d) {
-		if (d.landmark || d.path || d.name.indexOf("-") != -1) {
+		if (d.landmark || d.path) {
 			if (d.description) {
 				return d.description;
 			} else {
@@ -226,9 +371,10 @@ function pathLayout() {
 		link_elements.attr("stroke-width", strokeWidth).style("stroke", stroke);
 	}
 
-	function click(d) {
+	function click(d_c) {
 		if (d3.event.defaultPrevented)
 			return;
+		var egonetTitle = "Show Egonet";
 		d3.contextMenu([
 		                {
 		                	title: "Open OEIS Page",
@@ -237,13 +383,15 @@ function pathLayout() {
 		                		window.open("http://oeis.org/A" + d.name.split("-")[0]);
 		        	        }
 		        	    }, {
-		        	    	title: 'Show Egonet',
-		        	    	action: function(elm, d, i) {
-		        	    		d3.json("centroidPathService/getNeighbors?vertex=" + d.name.split("-")[0], mergeNodesLinks);
-		        	    		console.log("Show egonet for vertex: " + d.name);
-		        	    		d.path = true;
+		        	    	title: function(d_a) {
+		        	    		return "Show Egonet (" + d_a.neighborhoodSize + ")";
+		        	    	},
+		        	    	action: function(elm, d_a, i) {
+		        	    		d3.json("centroidPathService/getEgonet?vertex=" + d_a.name.split("-")[0], mergeNodesLinks);
+		        	    		console.log("Show egonet for vertex: " + d_a.name);
+		        	    		d_a.path = true;
 		        	    	}
-		        	    } ])(d);
+		        	    } ])(d_c);
 	}
 	
 	function rightClick(d) {
@@ -304,180 +452,17 @@ function pathLayout() {
 			});
 
 	function size(d) {
+		var baseSize = d.landmarkWeight || d.nodeWeight;
 		if(d.path)
-			return nodeSize * 2.8 / currentZoomLevel;
+			return 2 + nodeSize * baseSize * 2.25 / currentZoomLevel;
 		else if(d.landmark)
-			return nodeSize * 1.9 / currentZoomLevel;
+			return 2 + nodeSize * baseSize * 1.8 / currentZoomLevel;
 		else
-			return nodeSize / currentZoomLevel;
+			return 2 + nodeSize * baseSize / currentZoomLevel;
 	}
 
 }
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // End Path View
-
-// Add To Path View
-// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-function addToPathView() {
-	if (additionPending) {
-		alert("hold on, waiting for server");
-		return;
-	}
-	if (isNaN(textField.value)) {
-		alert(textField.value + " is not a sequence number");
-		return;
-	}
-	if (primaryNodes.indexOf(textField.value) != -1) {
-		alert("already added");
-		return;
-	}
-	var addedSequence = textField.value;
-	if(isNaN(addedSequence)) {
-		alert(addedSequence + "is not a sequence number");
-		return;
-	}
-	additionPending = true;
-	hist.push(textField.value);
-	textField.value = "";
-	// console.log(nodes);
-
-	primaryNodes.push(addedSequence);
-	var peelLevel = parseInt(peelSelect.options[peelSelect.selectedIndex].text) || 0;
-	d3.json("centroidPathService?vertex=" + addedSequence + "&peel=" + peelLevel, mergeNodesLinks);
-	// add to global nodes/links lists, set boolean flag, call force.resume
-}
-// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// End Add To Path View
-
-//Add Shortest Path
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-function addShortestPath() {
-	if (additionPending) {
-		alert("hold on, waiting for server");
-		return;
-	}
-	if (isNaN(textFieldOne.value)) {
-		alert(textFieldOne.value + " is not a sequence number");
-		return;
-	}
-	if (isNaN(textFieldTwo.value)) {
-		alert(textFieldTwo.value + " is not a sequence number");
-		return;
-	}
-	var seqOne = parseInt(textFieldOne.value);
-	var seqTwo = parseInt(textFieldTwo.value);
-	additionPending = true;
-	primaryNodes.push(textFieldOne.value);
-	primaryNodes.push(textFieldTwo.value);
-	textFieldOne.value = "";
-	textFieldTwo.value = "";
-
-	d3.json("centroidPathService/shortestPath?one=" + seqOne + "&two=" + seqTwo, mergeNodesLinks);
-	// add to global nodes/links lists, set boolean flag, call force.resume
-}
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//End Add Shortest Path
-
-// merge arrays of links sorted lexically by id
-// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-function mergeInLinks(addLinks) {
-	var newLinks = [];
-	var nodeLookup = [];
-	for (i = 0; i < nodes.length; i++) {
-		nodeLookup[nodes[i].name] = nodes[i];
-	}
-	addLinks.sort(function(a, b){
-	    if(a.source_name < b.source_name) return -1;
-	    if(a.source_name > b.source_name) return 1;
-	    if(a.target_name < b.target_name) return -1;
-	    if(a.target_name > b.target_name) return 1;
-		return 0;
-	});
-	// merging avoid duplicates
-	while (links.length > 0 && addLinks.length > 0) {
-		if (!addLinks[0].source) {
-			addLinks[0].source = nodeLookup[addLinks[0].source_name];
-			addLinks[0].target = nodeLookup[addLinks[0].target_name];
-			if(!(addLinks[0].source && addLinks[0].target)) {
-				console.log(addLinks[0].source_name + " or " + addLinks[0].target_name + " not found");
-			}
-		}
-		if (links[0].id == addLinks[0].id) {
-			newLinks.push(links.shift());
-			addLinks.shift();
-		} else if (links[0].id < addLinks[0].id) {
-			newLinks.push(links.shift());
-		} else {
-			newLinks.push(addLinks.shift());
-		}
-	}
-	if (links.length == 0) {
-		while (addLinks.length > 0) {
-			if (!addLinks[0].source) {
-				addLinks[0].source = nodeLookup[addLinks[0].source_name];
-				addLinks[0].target = nodeLookup[addLinks[0].target_name];
-			}
-			newLinks.push(addLinks.shift());
-		}
-	}
-	if (addLinks.length == 0) {
-		newLinks = newLinks.concat(links);
-	}
-	links = newLinks;
-}
-// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-function mergeNodesLinks(error, json) {
-	if (error) {
-		alert("Sequence " + textField.value + " not found");
-		console.log(error);
-		additionPending = false;
-		return;
-	}
-	
-	//console.log(json);
-	force.stop();
-	if (json.nodes) {
-		json.nodes.sort(function(a, b){
-			if(a.name < b.name) return -1;
-			if(a.name > b.name) return 1;
-			return 0;
-		});
-		var newNodes = [];
-		while (nodes.length > 0 && json.nodes.length > 0) {
-			var name_node = nodes[0].name.split("-")[0];
-			var name_json = json.nodes[0].name.split("-")[0];
-
-			if (name_node == name_json) {
-				var current = nodes.shift();
-				var other = json.nodes.shift();
-				current.path = current.path || other.path;
-				current.description = current.description || other.description;
-				current.landmark = current.landmark || other.landmark;
-				newNodes.push(current);
-			} else if (name_node < name_json) {
-				newNodes.push(nodes.shift());
-			} else {
-				var temp = json.nodes.shift();
-				temp.x = window.innerWidth / 2;
-				temp.y = window.innerHeight / 2;
-				newNodes.push(temp);
-			}
-		}
-		if (nodes.length == 0) {
-			newNodes = newNodes.concat(json.nodes);
-		}
-		if (json.nodes.length == 0) {
-			newNodes = newNodes.concat(nodes);
-		}
-		nodes = newNodes;
-	}
-	if (json.links) {
-		mergeInLinks(json.links);
-	}
-	additionMade = true;
-	additionPending = false;
-	force.resume();
-}
 
 pathLayout();
