@@ -27,7 +27,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import edu.rutgers.dimacs.reu.utility.*;
-import edu.rutgers.dimacs.reu.utility.DataStore.EdgeTypeGroup;
 import static javax.ejb.LockType.READ;
 
 @Singleton
@@ -50,14 +49,6 @@ public class CentroidPathService {
 			lts = (Map<Integer, Double>) loadSerialized("lmToShannon.ser");
 			ntw = (Map<Integer, Double>) loadSerialized("nodeToWeight.ser");
 			nc = (ArrayList<Integer>) loadSerialized("neighborCounts.ser");
-			Double maxShan = 0.0;
-			for(Integer i : lts.keySet()) {
-				maxShan = Math.max(maxShan, lts.get(i));
-			}
-			for(Integer i : lts.keySet()) {
-				lts.put(i, lts.get(i) / maxShan);
-			}
-			LOGGER.info("maximum Shannon is " + maxShan);
 		} catch (ClassNotFoundException | IOException e) {
 			LOGGER.log(Level.SEVERE, "Exception during serialized loading", e);
 		} finally {
@@ -115,7 +106,7 @@ public class CentroidPathService {
 		vertices.add(vertex);
 		path_ints.add(vertex);
 		try {
-			Iterable<Integer> it = DataStore.getInstance().getAdjacentUndirected(vertex, EdgeTypeGroup.NORMALONLY);
+			Iterable<Integer> it = DataStore.getInstance().getAdjacentUndirected(vertex);
 			for (Integer n : it) {
 				vertices.add(n);
 			}
@@ -134,7 +125,7 @@ public class CentroidPathService {
 	public String getNeighborhoodSize(@QueryParam("vertex") final int vertex) {
 		int count = 0;
 		try {
-			Iterable<Integer> it = DataStore.getInstance().getAdjacentUndirected(vertex, EdgeTypeGroup.NORMALONLY);
+			Iterable<Integer> it = DataStore.getInstance().getAdjacentUndirected(vertex);
 			for (Iterator<Integer> i = it.iterator(); i.hasNext();) {
 				i.next();
 				count++;
@@ -192,7 +183,7 @@ public class CentroidPathService {
 		while (!queue.isEmpty()) {
 			Integer u = queue.remove();
 			try {
-				for (int x : DataStore.getInstance().getAdjacentUndirected(u, EdgeTypeGroup.NORMALONLY)) {
+				for (int x : DataStore.getInstance().getAdjacentUndirected(u)) {
 					if (!visited.contains(x)) {
 						queue.add(x);
 						visited.add(x);
@@ -242,7 +233,7 @@ public class CentroidPathService {
 		while (!queue.isEmpty() && !found) {
 			Integer u = queue.remove();
 			try {
-				for (int x : DataStore.getInstance().getAdjacentUndirected(u, EdgeTypeGroup.NORMALONLY)) {
+				for (int x : DataStore.getInstance().getAdjacentUndirected(u)) {
 					if (!visited.contains(x)) {
 						queue.add(x);
 						visited.add(x);

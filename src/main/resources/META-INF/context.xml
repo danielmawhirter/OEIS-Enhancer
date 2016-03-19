@@ -1,6 +1,6 @@
 <Context>
 	<Resource name="jdbc/OEIS-REU-2015" auth="Container"
-		type="javax.sql.DataSource" username="reader" password="password"
-		driverClassName="com.mysql.jdbc.Driver" url="jdbc:mysql://localhost:3306/OEIS-REU-2015"
-		maxActive="15" maxIdle="3" />
+		type="javax.sql.DataSource"
+		driverClassName="org.sqlite.JDBC" url="jdbc:sqlite:oeis.db"
+		maxActive="15" maxIdle="3" readonly="true" />
 </Context>
