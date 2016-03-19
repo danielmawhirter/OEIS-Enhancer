@@ -7,39 +7,36 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.naming.NamingException;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.StreamingOutput;
 
 public class StreamingUtility {
 
 	private static final Logger LOGGER = Logger.getLogger(StreamingUtility.class.getName());
 
-	private static void writeNodesJSON(Graph graph, Set<Integer> path_ints, Set<Integer> landmark_ints,
-			final Map<Integer, Double> nodeWeight, final Map<Integer, Double> lmWeight,
+	private static void writeNodesJSON(TreeMap<Integer, TreeSet<Integer>> graph, Set<Integer> path_ints,
+			Set<Integer> landmark_ints, final Map<Integer, Double> nodeWeight, final Map<Integer, Double> lmWeight,
 			ArrayList<Integer> neighborhoodSizes, Writer writer) throws IOException {
-		LinkedList<Integer> wordNodes = new LinkedList<>();
-		for (GraphNode gn : graph.getNodeSet()) {
-			wordNodes.add(Integer.parseInt(gn.toString()));
-		}
+		if (null == graph)
+			return;
+		Set<Integer> vertices = graph.keySet();
 		Map<Integer, String> descriptions = null;
 		try {
-			descriptions = DataStore.getInstance().getDescription(wordNodes);
+			descriptions = DataStore.getInstance().getDescription(vertices);
 		} catch (SQLException | NamingException e) {
 			LOGGER.warning("Words and descriptions not available from DataStore");
 		}
 
 		boolean first = true;
-		for (GraphNode gn : graph.getNodeSet()) {
-			int gn_int = Integer.parseInt(gn.toString());
+		for (int gn_int : vertices) {
 			if (first) {
 				first = false;
 			} else {
@@ -47,7 +44,7 @@ public class StreamingUtility {
 			}
 
 			writer.write("\n{\"name\":\"");
-			writer.write(gn.toString());
+			writer.write(Integer.toString(gn_int));
 			if (descriptions != null) {
 				writer.write("\",\"description\":\"");
 				writer.write(descriptions.get(gn_int));
@@ -72,77 +69,56 @@ public class StreamingUtility {
 		}
 	}
 
-	private static void writeEdgesJSON(Graph graph, Writer writer) throws IOException {
+	private static void writeEdgesJSON(TreeMap<Integer, TreeSet<Integer>> graph, Writer writer) throws IOException {
+		if (null == graph)
+			return;
 		boolean first = true;
-		TreeSet<Edge> orderedEdges = new TreeSet<>(graph.getEdgeSet());
-		for (Edge edge : orderedEdges) {
-			if (first) {
+		for (int one : graph.keySet()) {
+			for (int two : graph.get(one)) {
+				if (!first) {
+					writer.write(",");
+				}
 				first = false;
-				writer.write("\n{");
-				writer.write(edge.toString());
-				writer.write("}");
-			} else {
-				writer.write(",\n{");
-				writer.write(edge.toString());
-				writer.write("}");
+				writer.write("\n{\"id\":\"");
+				writer.write(Integer.toString(one));
+				writer.write("--");
+				writer.write(Integer.toString(two));
+				writer.write("\", \"source_name\":\"");
+				writer.write(Integer.toString(one));
+				writer.write("\", \"target_name\":\"");
+				writer.write(Integer.toString(two));
+				writer.write("\"}");
 			}
 		}
 	}
 
-	public static StreamingOutput finalJSON(final Graph graph, final Set<Integer> path_ints,
+	public static StreamingOutput streamJSON(final Set<Integer> vertices, final Set<Integer> path_ints,
 			final Set<Integer> landmark_ints, final Map<Integer, Double> nodeWeight,
 			final Map<Integer, Double> lmWeight, final ArrayList<Integer> neighborhoodSizes, final long timeStart) {
-		StreamingOutput stream = new StreamingOutput() {
+		if (null == vertices)
+			return null;
+		return new StreamingOutput() {
 			@Override
-			public void write(OutputStream os) throws IOException, WebApplicationException {
+			public void write(OutputStream os) throws IOException {
 				Writer writer = new BufferedWriter(new OutputStreamWriter(os));
-				if (null != graph) {
-					writer.write("{\n\"nodes\":[\n");
-					writeNodesJSON(graph, path_ints, landmark_ints, nodeWeight, lmWeight, neighborhoodSizes, writer);
-					writer.write("], \"links\":[\n");
-					writeEdgesJSON(graph, writer);
-					writer.write("]\n}");
-					writer.flush();
-					writer.close();
-					LOGGER.info("algorithm and response with JSON took "
-							+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000)) + "ms");
-				} else {
-					writer.write("{\"error\":\"Graph not available: DataStore failure\"}");
+				TreeMap<Integer, TreeSet<Integer>> graph = null;
+				try {
+					graph = DataStore.getInstance().getCrossrefsWithinUndir(vertices);
+				} catch (ExecutionException e) {
+					LOGGER.log(Level.SEVERE, "Cannot get crossrefs within", e);
 				}
+
+				writer.write("{\n\"nodes\":[\n");
+				writeNodesJSON(graph, path_ints, landmark_ints, nodeWeight, lmWeight, neighborhoodSizes, writer);
+				writer.write("], \"links\":[\n");
+				writeEdgesJSON(graph, writer);
+				writer.write("]\n}");
+				writer.flush();
+				writer.close();
+				LOGGER.info("algorithm and response with JSON took "
+						+ Integer.toString((int) ((System.nanoTime() - timeStart) / 1000000)) + "ms");
 			}
 		};
-		return stream;
 	}
 
-	public static Graph buildGraph(Set<Integer> ints) {
-		Graph graph = new Graph(false, "");
-
-		// add all the nodes
-		for (int n : ints) {
-			graph.addNode(Integer.toString(n));
-		}
-
-		Map<Integer, Collection<Integer>> refs;
-		try {
-			refs = DataStore.getInstance().getCrossrefsWithin(ints);
-		} catch (ExecutionException e) {
-			LOGGER.warning("Unable to get crossrefs from DataStore");
-			return null;
-		}
-
-		// for each node, get the neighborhood
-		// and if the neighbor_gn exists, add the edge
-		for (GraphNode gn : graph.getNodeSet()) {
-			int gn_int = Integer.parseInt(gn.toString());
-			for (int neighbor_int : refs.get(gn_int)) {
-				String neighbor_str = Integer.toString(neighbor_int);
-				GraphNode neighbor_gn = graph.getNode(neighbor_str);
-				if (neighbor_gn != null) {
-					graph.addEdge(gn, neighbor_gn);
-				}
-			}
-		}
-
-		return graph;
-	}
 }

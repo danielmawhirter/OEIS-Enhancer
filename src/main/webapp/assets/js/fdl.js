@@ -281,7 +281,7 @@ function pathLayout() {
 		nodeEnter.append("circle").style("fill", fillColor);
 
 		nodeEnter.append("text")
-			.text(filteredText).attr("text-anchor", "left");
+			.html(filteredText).attr("text-anchor", "left");
 
 		additionMade = false;
 		refreshAfterZoom();

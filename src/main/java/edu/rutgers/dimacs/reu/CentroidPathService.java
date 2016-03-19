@@ -91,8 +91,7 @@ public class CentroidPathService {
 		for (Integer lm : peelToLmToPath.get(level).keySet()) {
 			all.addAll(peelToLmToPath.get(level).get(lm));
 		}
-		Graph graph = StreamingUtility.buildGraph(all);
-		return Response.ok(StreamingUtility.finalJSON(graph, null, peelToLmToPath.get(level).keySet(), nodeToWeight,
+		return Response.ok(StreamingUtility.streamJSON(all, null, peelToLmToPath.get(level).keySet(), nodeToWeight,
 				lmToShannon, neighborCounts, timeStart)).build();
 	}
 
@@ -114,8 +113,7 @@ public class CentroidPathService {
 			LOGGER.log(Level.SEVERE, "Exception thrown during getNeighbors", e);
 			return Response.serverError().build();
 		}
-		Graph graph = StreamingUtility.buildGraph(vertices);
-		return Response.ok(StreamingUtility.finalJSON(graph, path_ints, null, nodeToWeight, lmToShannon, neighborCounts, timeStart))
+		return Response.ok(StreamingUtility.streamJSON(vertices, path_ints, null, nodeToWeight, lmToShannon, neighborCounts, timeStart))
 				.build();
 	}
 
@@ -145,8 +143,7 @@ public class CentroidPathService {
 		LOGGER.info("one: " + one + " two: " + two);
 		Collection<Integer> path = getShortestPath(one, two);
 		Set<Integer> path_ints = new HashSet<Integer>(path);
-		Graph graph = StreamingUtility.buildGraph(path_ints);
-		return Response.ok(StreamingUtility.finalJSON(graph, path_ints, null, nodeToWeight, lmToShannon, neighborCounts, timeStart))
+		return Response.ok(StreamingUtility.streamJSON(path_ints, path_ints, null, nodeToWeight, lmToShannon, neighborCounts, timeStart))
 				.build();
 	}
 
@@ -157,8 +154,7 @@ public class CentroidPathService {
 		LOGGER.info("vertex: " + vertex + " peel: " + peelLevel);
 		Collection<Integer> path = getLandmarkPath(vertex, peelLevel);
 		Set<Integer> path_ints = new HashSet<Integer>(path);
-		Graph graph = StreamingUtility.buildGraph(path_ints);
-		return Response.ok(StreamingUtility.finalJSON(graph, path_ints, peelToLmToPath.get(peelLevel).keySet(),
+		return Response.ok(StreamingUtility.streamJSON(path_ints, path_ints, peelToLmToPath.get(peelLevel).keySet(),
 				nodeToWeight, lmToShannon, neighborCounts, timeStart)).build();
 	}
 

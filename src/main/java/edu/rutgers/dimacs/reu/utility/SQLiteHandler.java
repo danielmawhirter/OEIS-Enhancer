@@ -3,9 +3,12 @@ package edu.rutgers.dimacs.reu.utility;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -53,11 +56,21 @@ public class SQLiteHandler {
 				result.append("<br>Product name: ").append(dm.getDatabaseProductName());
 				result.append("<br>Product version: ").append(dm.getDatabaseProductVersion());
 				result.append("<br><br>Tables:<br>");
+				Set<String> tables = new HashSet<>();
 				Statement st = conn.createStatement();
 				ResultSet rs = st.executeQuery("SELECT name, sql FROM sqlite_master WHERE type='table';");
 				while (rs.next()) {
 					result.append(rs.getString(1) + "<br>");
 					result.append(rs.getString(2) + "<br>");
+					tables.add(rs.getString(1));
+				}
+				for(String table : tables) {
+					rs = st.executeQuery("SELECT * FROM " + table + " LIMIT 1;");
+					ResultSetMetaData md = rs.getMetaData();
+					result.append("<br>").append(table).append("<br>| ");
+					for(int i = 1; i <= md.getColumnCount(); i++) {
+						result.append(md.getColumnName(i)).append(":").append(md.getColumnTypeName(i)).append(" | ");
+					}
 				}
 			} catch (SQLException e) {
 				e.printStackTrace();
@@ -76,7 +89,7 @@ public class SQLiteHandler {
 				+ sequence + ";");
 	}
 	
-	public Map<Integer, String> getDescription(Iterable<Integer> group) throws SQLException {
+	public Map<Integer, String> getDescription(Set<Integer> group) throws SQLException {
 		Map<Integer, String> descs = new TreeMap<>();
 		String in_str = "(";
 		for (Integer i : group) {

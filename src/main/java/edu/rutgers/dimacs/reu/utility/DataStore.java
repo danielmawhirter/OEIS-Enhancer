@@ -4,10 +4,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -120,11 +123,11 @@ public class DataStore {
 		public final int dest;
 	}
 
-	public Map<Integer, Collection<Integer>> getCrossrefsWithin(
-			Set<Integer> nodes) throws ExecutionException {
-		Map<Integer, Collection<Integer>> map = new HashMap<>();
-		for (Integer i : nodes) {
-			LinkedList<Integer> list = new LinkedList<Integer>();
+	public Map<Integer, Set<Integer>> getCrossrefsWithin(
+			Set<Integer> vertices) throws ExecutionException {
+		Map<Integer, Set<Integer>> map = new HashMap<>();
+		for (Integer i : vertices) {
+			Set<Integer> list = new HashSet<Integer>();
 			ImmutableSet<Edge> adj = crossrefCache.get(i);
 			for (Edge j : adj) {
 				if (j.forward) {
@@ -135,11 +138,31 @@ public class DataStore {
 		}
 		return map;
 	}
+	
+	public TreeMap<Integer, TreeSet<Integer>> getCrossrefsWithinUndir(
+			Set<Integer> vertices) throws ExecutionException {
+		TreeMap<Integer, TreeSet<Integer>> map = new TreeMap<>();
+		for(Integer i : vertices) {
+			map.put(i, new TreeSet<Integer>());
+		}
+		for (Integer i : vertices) {
+			for (Edge j : crossrefCache.get(i)) {
+				if(vertices.contains(j.dest)) {
+					if(i < j.dest) {
+						map.get(i).add(j.dest);
+					} else {
+						map.get(j.dest).add(i);
+					}
+				}
+			}
+		}
+		return map;
+	}
 
-	public Map<Integer, String> getDescription(Iterable<Integer> path_ints)
+	public Map<Integer, String> getDescription(Set<Integer> vertices)
 			throws SQLException, NamingException {
-		if(null == path_ints) return null;
-		return SQLiteHandler.getInstance().getDescription(path_ints);
+		if(null == vertices) return null;
+		return SQLiteHandler.getInstance().getDescription(vertices);
 	}
 
 }
