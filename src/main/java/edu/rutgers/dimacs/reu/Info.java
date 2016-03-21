@@ -15,9 +15,11 @@ import edu.rutgers.dimacs.reu.utility.SQLiteHandler;
 @Path("info")
 @Lock(READ)
 public class Info {
+
 	@GET
 	@Produces(MediaType.TEXT_HTML)
 	public String get() {
 		return SQLiteHandler.getInstance().getInfo();
 	}
+
 }

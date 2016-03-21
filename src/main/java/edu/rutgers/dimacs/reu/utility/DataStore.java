@@ -2,11 +2,9 @@ package edu.rutgers.dimacs.reu.utility;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -41,7 +39,7 @@ public class DataStore {
 	}
 	private DataStore() {
 		crossrefCache = CacheBuilder.newBuilder().maximumWeight(10000000)
-				.expireAfterAccess(600, TimeUnit.MINUTES)
+				.expireAfterAccess(60, TimeUnit.MINUTES)
 				.weigher(new Weigher<Integer, ImmutableSet<Edge>>() {
 					@Override
 					public int weigh(Integer key, ImmutableSet<Edge> value) {
@@ -67,10 +65,6 @@ public class DataStore {
 						return setBuilder.build();
 					}
 				});
-	}
-
-	private void intoCache(Set<Integer> vertices) {
-		
 	}
 
 	public Iterable<Integer> getAdjacentUndirected(int node) throws ExecutionException {
@@ -123,7 +117,7 @@ public class DataStore {
 		public final int dest;
 	}
 
-	public Map<Integer, Set<Integer>> getCrossrefsWithin(
+	public Map<Integer, Set<Integer>> getCrossrefsWithin (
 			Set<Integer> vertices) throws ExecutionException {
 		Map<Integer, Set<Integer>> map = new HashMap<>();
 		for (Integer i : vertices) {
@@ -139,7 +133,7 @@ public class DataStore {
 		return map;
 	}
 	
-	public TreeMap<Integer, TreeSet<Integer>> getCrossrefsWithinUndir(
+	public TreeMap<Integer, TreeSet<Integer>> getSubgraphInduced (
 			Set<Integer> vertices) throws ExecutionException {
 		TreeMap<Integer, TreeSet<Integer>> map = new TreeMap<>();
 		for(Integer i : vertices) {

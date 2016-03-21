@@ -24,14 +24,18 @@ public class SQLiteHandler {
 			.getName());
 	private Connection conn = null;
 	private DataSource ds = null;
+	//private PreparedStatement prepCrossrefsIncident;
+	//private PreparedStatement prepDescription;
 	
 	private static SQLiteHandler instance;
 	private SQLiteHandler() {
 		try {
 			Context initCtx = new InitialContext();
 			Context envCtx = (Context) initCtx.lookup("java:comp/env");
-			ds = (DataSource) envCtx.lookup("jdbc/OEIS-REU-2015");
-			conn = ds.getConnection();
+			this.ds = (DataSource) envCtx.lookup("jdbc/OEIS-REU-2015");
+			this.conn = ds.getConnection();
+			//this.prepCrossrefsIncident = conn.prepareStatement("SELECT * FROM Cross_Refs WHERE source=? OR destination=?;");
+			//this.prepDescription = conn.prepareStatement("SELECT id, description FROM Sequences WHERE id IN ?;");
 		} catch (NamingException | SQLException e) {
 			LOGGER.log(Level.SEVERE, "Database unavailable", e);
 		}
@@ -55,6 +59,7 @@ public class SQLiteHandler {
 				result.append("<br>Driver version: ").append(dm.getDriverVersion());
 				result.append("<br>Product name: ").append(dm.getDatabaseProductName());
 				result.append("<br>Product version: ").append(dm.getDatabaseProductVersion());
+				result.append("<br>Database URL: ").append(dm.getURL());
 				result.append("<br><br>Tables:<br>");
 				Set<String> tables = new HashSet<>();
 				Statement st = conn.createStatement();
@@ -65,7 +70,7 @@ public class SQLiteHandler {
 					tables.add(rs.getString(1));
 				}
 				for(String table : tables) {
-					rs = st.executeQuery("SELECT * FROM " + table + " LIMIT 1;");
+					rs = st.executeQuery("SELECT * FROM " + table + " LIMIT 0;");
 					ResultSetMetaData md = rs.getMetaData();
 					result.append("<br>").append(table).append("<br>| ");
 					for(int i = 1; i <= md.getColumnCount(); i++) {

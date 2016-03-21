@@ -103,7 +103,7 @@ public class StreamingUtility {
 				Writer writer = new BufferedWriter(new OutputStreamWriter(os));
 				TreeMap<Integer, TreeSet<Integer>> graph = null;
 				try {
-					graph = DataStore.getInstance().getCrossrefsWithinUndir(vertices);
+					graph = DataStore.getInstance().getSubgraphInduced(vertices);
 				} catch (ExecutionException e) {
 					LOGGER.log(Level.SEVERE, "Cannot get crossrefs within", e);
 				}

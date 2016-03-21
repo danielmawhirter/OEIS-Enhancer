@@ -20,11 +20,15 @@ import java.util.logging.Logger;
 import javax.ejb.Lock;
 import javax.ejb.Singleton;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.FormParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+
+import org.json.JSONArray;
 
 import edu.rutgers.dimacs.reu.utility.*;
 import static javax.ejb.LockType.READ;
@@ -94,6 +98,20 @@ public class CentroidPathService {
 		return Response.ok(StreamingUtility.streamJSON(all, null, peelToLmToPath.get(level).keySet(), nodeToWeight,
 				lmToShannon, neighborCounts, timeStart)).build();
 	}
+	
+	@Path("getSubgraph")
+	@POST
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response getSubgraphInduced(@FormParam("vertices") String data) {
+		long timeStart = System.nanoTime();
+		JSONArray js = new JSONArray(data);
+		Set<Integer> vertices = new HashSet<>();
+		for(int i = 0; i < js.length(); i++) {
+			vertices.add(js.getInt(i));
+		}
+		return Response.ok(StreamingUtility.streamJSON(vertices, null, peelToLmToPath.get(0).keySet(), nodeToWeight,
+				lmToShannon, neighborCounts, timeStart)).build();
+	}
 
 	@Path("getEgonet")
 	@GET
@@ -113,8 +131,8 @@ public class CentroidPathService {
 			LOGGER.log(Level.SEVERE, "Exception thrown during getNeighbors", e);
 			return Response.serverError().build();
 		}
-		return Response.ok(StreamingUtility.streamJSON(vertices, path_ints, null, nodeToWeight, lmToShannon, neighborCounts, timeStart))
-				.build();
+		return Response.ok(StreamingUtility.streamJSON(vertices, path_ints, null, nodeToWeight, lmToShannon,
+				neighborCounts, timeStart)).build();
 	}
 
 	@Path("getNeighborhoodSize")
@@ -143,8 +161,8 @@ public class CentroidPathService {
 		LOGGER.info("one: " + one + " two: " + two);
 		Collection<Integer> path = getShortestPath(one, two);
 		Set<Integer> path_ints = new HashSet<Integer>(path);
-		return Response.ok(StreamingUtility.streamJSON(path_ints, path_ints, null, nodeToWeight, lmToShannon, neighborCounts, timeStart))
-				.build();
+		return Response.ok(StreamingUtility.streamJSON(path_ints, path_ints, null, nodeToWeight, lmToShannon,
+				neighborCounts, timeStart)).build();
 	}
 
 	@GET
@@ -261,27 +279,5 @@ public class CentroidPathService {
 		}
 		return path;
 	}
-
-	/*
-	 * private void labelVertices(Graph graph) { LinkedList<Integer> wordNodes =
-	 * new LinkedList<>(); for (GraphNode gn : graph.getNodeSet()) {
-	 * wordNodes.add(Integer.parseInt(gn.toString())); } Map<Integer,
-	 * Map<String, Integer>> allWords = null; try { allWords =
-	 * ds.getWordMultiSet(wordNodes); } catch (SQLException | NamingException e)
-	 * { LOGGER.warning("Words and descriptions not available from DataStore");
-	 * } for (GraphNode gn : graph.getNodeSet()) { int gn_int =
-	 * Integer.parseInt(gn.toString()); StringBuilder label = new
-	 * StringBuilder(); if(allWords != null) { ArrayList<String> selectedWords =
-	 * new ArrayList<String>(); Map<String, Integer> nodeWords =
-	 * allWords.get(gn_int);
-	 * 
-	 * int totalFreq = 0; for (String word : nodeWords.keySet()) { totalFreq +=
-	 * nodeWords.get(word); } for (String word : nodeWords.keySet()) { int
-	 * wordFreq = nodeWords.get(word); if ((double) wordFreq / totalFreq > 0.25)
-	 * { selectedWords.add(word); } // after sorting, check all n elements for
-	 * this property -_- } for (String selected : selectedWords) {
-	 * label.append("-"); label.append(selected); } gn.label = label.toString();
-	 * } } }
-	 */
 
 }
