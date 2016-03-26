@@ -72,7 +72,7 @@ public class DataStore {
 
 		final UnmodifiableIterator<Edge> it = edges.iterator();
 		return new Iterable<Integer>() {
-			private Edge current = it.next();
+			private Edge current = it.hasNext() ? it.next() : null;
 
 			@Override
 			public Iterator<Integer> iterator() {

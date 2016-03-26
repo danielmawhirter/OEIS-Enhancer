@@ -54,8 +54,10 @@ public class StreamingUtility {
 			}
 			if (null != landmark_ints && landmark_ints.contains(gn_int)) {
 				writer.write("\",\"landmark\":\"true");
-				writer.write("\",\"landmarkWeight\":\"");
-				writer.write(lmWeight.get(gn_int).toString());
+				if(null != lmWeight && null != lmWeight.get(gn_int)) {
+					writer.write("\",\"landmarkWeight\":\"");
+					writer.write(lmWeight.get(gn_int).toString());
+				}
 			}
 			if (null != nodeWeight && nodeWeight.containsKey(gn_int)) {
 				writer.write("\",\"nodeWeight\":\"");
