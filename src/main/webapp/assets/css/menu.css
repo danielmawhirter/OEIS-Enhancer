@@ -112,8 +112,8 @@ div.controls {
 }
 
 .incdecButton {
-  -webkit-border-radius: 12;
-  -moz-border-radius: 12;
+  -webkit-border-radius: 5.0em;
+  -moz-border-radius: 5.0em;
   border-radius: 5.0em;
   color: #ffffff;
   background: #878787;
@@ -125,4 +125,11 @@ div.controls {
 .incdecButton:hover {
   background: #2eb363;
   text-decoration: none;
+}
+
+#landmarkList {
+  height: 7.5em;
+  margin: 0;
+  font-size: 0.75em;
+  overflow-y: scroll;
 }

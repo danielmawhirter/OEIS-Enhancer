@@ -229,6 +229,7 @@ function pathLayout() {
 			.selectAll(".link");
 	var node_elements = zoomableField.append("g").attr("class", "nodes")
 			.selectAll(".node");
+	var landmark_elements = d3.select("#landmarkList").append("a").selectAll("a");
 
 	d3.select(window).on("resize", resize);
 
@@ -253,8 +254,10 @@ function pathLayout() {
 		console.log("Clear View");
 		nodes = [];
 		links = [];
+		landmarks = [];
 		hist = [];
-		resumeForce();
+		if (force && force.resume)
+			force.resume();
 		additionMade = true;
 		additionPending = false;
 	}
@@ -274,14 +277,22 @@ function pathLayout() {
 			return d.name;
 		})
 		node_elements.exit().remove();
-
 		var nodeEnter = node_elements.enter().append("g").attr("class", "node")
 				.call(drag).on("click", click).on("contextmenu", rightClick);
-
 		nodeEnter.append("circle").style("fill", fillColor);
-
 		nodeEnter.append("text")
 			.html(filteredText).attr("text-anchor", "left");
+		
+		landmark_elements = landmark_elements.data(nodes.filter(function(d) {
+			return d.landmark;
+		}), function(d) {
+			return d.name;
+		});
+		landmark_elements.exit().remove();
+		landmark_elements.enter().append("a").html(function(d) {
+			var label = "<br>&bull; (" + d.name + ") " + d.description;
+			return label.substring(0, 40);
+		});
 
 		additionMade = false;
 		refreshAfterZoom();
