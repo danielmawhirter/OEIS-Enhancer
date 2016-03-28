@@ -414,11 +414,19 @@ var pathLayout = function(initial) {
 		        	    		}
 		        	    	}
 		        	    }, {
-		        	    	title: function(d_a) {
-		        	    		return "Open Egonet in New Window";
-		        	    	},
+		        	    	title: "Open Egonet in New Window",
 		        	    	action: function(elm, d_a, i) {
 		        	    		window.open("/").toOpen = d_a.name;
+		        	    	}
+		        	    }, {
+		        	    	title: "Set as Source",
+		        	    	action: function(elm, d_a, i) {
+		        	    		textFieldOne.value = d_a.name;
+		        	    	}
+		        	    }, {
+		        	    	title: "Set as Destination",
+		        	    	action: function(elm, d_a, i) {
+		        	    		textFieldTwo.value = d_a.name;
 		        	    	}
 		        	    } ])(d_c);
 	}
