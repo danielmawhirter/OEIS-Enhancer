@@ -134,6 +134,25 @@ public class CentroidPathService {
 		return Response.ok(StreamingUtility.streamJSON(vertices, path_ints, null, nodeToWeight, lmToShannon,
 				neighborCounts, timeStart)).build();
 	}
+	
+	@Path("getEgonetWithoutCenter")
+	@GET
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response getEgonetWithoutCenter(@QueryParam("vertex") final int vertex) {
+		long timeStart = System.nanoTime();
+		Set<Integer> vertices = new HashSet<>();
+		try {
+			Iterable<Integer> it = DataStore.getInstance().getAdjacentUndirected(vertex);
+			for (Integer n : it) {
+				vertices.add(n);
+			}
+		} catch (ExecutionException e) {
+			LOGGER.log(Level.SEVERE, "Exception thrown during getNeighbors", e);
+			return Response.serverError().build();
+		}
+		return Response.ok(StreamingUtility.streamJSON(vertices, null, null, nodeToWeight, lmToShannon,
+				neighborCounts, timeStart)).build();
+	}
 
 	@Path("getNeighborhoodSize")
 	@GET

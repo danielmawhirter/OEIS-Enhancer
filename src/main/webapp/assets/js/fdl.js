@@ -334,7 +334,7 @@ var pathLayout = function(initial) {
 				return "red";
 			return "blue";
 		}
-		return "gray";
+		return "hsl(0, 0%, " + (25 + 50 * d.nodeWeight) + "%)";
 	}
 	
 
@@ -483,7 +483,8 @@ var pathLayout = function(initial) {
 	resize();
 	
 	if(initial) {
-		d3.json("centroidPathService/getEgonet?vertex=" + initial, mergeNodesLinks);
+		d3.json("centroidPathService/getEgonetWithoutCenter?vertex=" + initial, mergeNodesLinks);
+		document.title = "Egonet of " + initial + " (" + document.title + ")";
 	}
 
 }
