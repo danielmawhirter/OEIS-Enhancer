@@ -98,7 +98,7 @@ public class CentroidPathService {
 		return Response.ok(StreamingUtility.streamJSON(all, null, peelToLmToPath.get(level).keySet(), nodeToWeight,
 				lmToShannon, neighborCounts, timeStart)).build();
 	}
-	
+
 	@Path("getSubgraph")
 	@POST
 	@Produces(MediaType.APPLICATION_JSON)
@@ -106,7 +106,7 @@ public class CentroidPathService {
 		long timeStart = System.nanoTime();
 		JSONArray js = new JSONArray(data);
 		Set<Integer> vertices = new HashSet<>();
-		for(int i = 0; i < js.length(); i++) {
+		for (int i = 0; i < js.length(); i++) {
 			vertices.add(js.getInt(i));
 		}
 		return Response.ok(StreamingUtility.streamJSON(vertices, null, peelToLmToPath.get(0).keySet(), nodeToWeight,
@@ -134,7 +134,7 @@ public class CentroidPathService {
 		return Response.ok(StreamingUtility.streamJSON(vertices, path_ints, null, nodeToWeight, lmToShannon,
 				neighborCounts, timeStart)).build();
 	}
-	
+
 	@Path("getEgonetWithoutCenter")
 	@GET
 	@Produces(MediaType.APPLICATION_JSON)
@@ -150,8 +150,9 @@ public class CentroidPathService {
 			LOGGER.log(Level.SEVERE, "Exception thrown during getNeighbors", e);
 			return Response.serverError().build();
 		}
-		return Response.ok(StreamingUtility.streamJSON(vertices, null, null, nodeToWeight, lmToShannon,
-				neighborCounts, timeStart)).build();
+		return Response.ok(
+				StreamingUtility.streamJSON(vertices, null, null, nodeToWeight, lmToShannon, neighborCounts, timeStart))
+				.build();
 	}
 
 	@Path("getNeighborhoodSize")
@@ -190,6 +191,8 @@ public class CentroidPathService {
 		long timeStart = System.nanoTime();
 		LOGGER.info("vertex: " + vertex + " peel: " + peelLevel);
 		Collection<Integer> path = getLandmarkPath(vertex, peelLevel);
+		if (null == path)
+			return getEgonet(vertex);
 		Set<Integer> path_ints = new HashSet<Integer>(path);
 		return Response.ok(StreamingUtility.streamJSON(path_ints, path_ints, peelToLmToPath.get(peelLevel).keySet(),
 				nodeToWeight, lmToShannon, neighborCounts, timeStart)).build();
@@ -239,7 +242,7 @@ public class CentroidPathService {
 		pathToLM.add(vertex);
 
 		if (!landmarkFound)
-			return pathToLM;
+			return null;
 
 		// retrieve the path to the found landmark
 		int curr = closestlm;
