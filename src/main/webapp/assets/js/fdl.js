@@ -1,6 +1,6 @@
 // Path View
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-function pathLayout() {
+var pathLayout = function(initial) {
 	
 	// Add To Path View
 	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -262,8 +262,6 @@ function pathLayout() {
 		additionPending = false;
 	}
 
-	resize();
-
 	function update() {
 		force.nodes(nodes).links(links).start();
 
@@ -338,6 +336,17 @@ function pathLayout() {
 		}
 		return "gray";
 	}
+	
+
+	function size(d) {
+		var baseSize = (d.landmarkWeight || -0.25) + 1.0;
+		if(d.path)
+			return 2 + nodeSize * baseSize * 2.25 / currentZoomLevel;
+		else if(d.landmark)
+			return 2 + nodeSize * baseSize * 1.8 / currentZoomLevel;
+		else
+			return 2 + nodeSize * baseSize / currentZoomLevel;
+	}
 
 	function allText(d) {
 		return d.description || d.name;
@@ -398,9 +407,18 @@ function pathLayout() {
 		        	    		return "Show Egonet (" + d_a.neighborhoodSize + ")";
 		        	    	},
 		        	    	action: function(elm, d_a, i) {
-		        	    		d3.json("centroidPathService/getEgonet?vertex=" + d_a.name.split("-")[0], mergeNodesLinks);
-		        	    		console.log("Show egonet for vertex: " + d_a.name);
-		        	    		d_a.path = true;
+		        	    		if(d_a.neighborhoodSize < 128 || confirm("Large egonet, confirm to open in this view")) {
+			        	    		d3.json("centroidPathService/getEgonet?vertex=" + d_a.name.split("-")[0], mergeNodesLinks);
+			        	    		console.log("Show egonet for vertex: " + d_a.name);
+			        	    		d_a.path = true;
+		        	    		}
+		        	    	}
+		        	    }, {
+		        	    	title: function(d_a) {
+		        	    		return "Open Egonet in New Window";
+		        	    	},
+		        	    	action: function(elm, d_a, i) {
+		        	    		window.open("/").toOpen = d_a.name;
 		        	    	}
 		        	    } ])(d_c);
 	}
@@ -461,19 +479,13 @@ function pathLayout() {
 				zoomableField.attr("transform", "translate(" + zoom.translate()
 						+ ")scale(" + currentZoomLevel + ")");
 			});
-
-	function size(d) {
-		var baseSize = d.landmarkWeight || d.nodeWeight;
-		if(d.path)
-			return 2 + nodeSize * baseSize * 2.25 / currentZoomLevel;
-		else if(d.landmark)
-			return 2 + nodeSize * baseSize * 1.8 / currentZoomLevel;
-		else
-			return 2 + nodeSize * baseSize / currentZoomLevel;
+	
+	resize();
+	
+	if(initial) {
+		d3.json("centroidPathService/getEgonet?vertex=" + initial, mergeNodesLinks);
 	}
 
 }
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // End Path View
-
-pathLayout();
