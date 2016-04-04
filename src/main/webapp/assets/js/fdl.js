@@ -1,6 +1,6 @@
 // Path View
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-var pathLayout = function(initial) {
+var pathLayout = function(initial, openMarked) {
 	
 	// Add To Path View
 	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -176,6 +176,9 @@ var pathLayout = function(initial) {
 		if (force && force.stop)
 			force.stop();
 	};
+	document.getElementById("openMarkedButton").onclick = function() {
+		window.open("/").openMarked = true;
+	};
 	
 	// input fields
 	var textField = document.getElementById("sequenceId");
@@ -230,6 +233,7 @@ var pathLayout = function(initial) {
 	var node_elements = zoomableField.append("g").attr("class", "nodes")
 			.selectAll(".node");
 	var landmark_elements = d3.select("#landmarkList").append("a").selectAll("a");
+	var marked_elements = d3.select("#markedList").append("a").selectAll("a");
 
 	d3.select(window).on("resize", resize);
 
@@ -276,10 +280,20 @@ var pathLayout = function(initial) {
 		})
 		node_elements.exit().remove();
 		var nodeEnter = node_elements.enter().append("g").attr("class", "node")
-				.call(drag).on("click", click).on("contextmenu", rightClick);
+				.call(drag).on("click", click).on("contextmenu", rightClick).attr("id", function(d) {
+					return "vertex_" + d.name;
+				});
 		nodeEnter.append("circle").style("fill", fillColor);
 		nodeEnter.append("text")
 			.html(filteredText).attr("text-anchor", "left");
+		
+		marked_elements = marked_elements.data(highest.markedVertices, function(d) {
+			return d.name;
+		});
+		marked_elements.enter().append("a").html(function(d) {
+			var label = "<br>&bull; (" + d.name + ") " + d.description;
+			return label.substring(0, 40);
+		});
 		
 		landmark_elements = landmark_elements.data(nodes.filter(function(d) {
 			return d.landmark;
@@ -290,7 +304,15 @@ var pathLayout = function(initial) {
 		landmark_elements.enter().append("a").html(function(d) {
 			var label = "<br>&bull; (" + d.name + ") " + d.description;
 			return label.substring(0, 40);
-		});
+		}).on("click", click);/*, function(d) {
+			console.log("simulating on " + d.name);
+			//console.log(document.getElementById("vertex_" + d.name).rbox());
+			//console.log(document.getElementById("vertex_" + d.name).getBoundingClientRect());
+			//document.getElementById("vertex_" + d.name).dispatchEvent(new MouseEvent('click'));
+			var e = document.createEvent('MouseEvents');
+			e.initUIEvent('click', true, true, window, 1);
+			d3.select("#vertex_" + d.name).node().dispatchEvent(e);
+		});*/
 
 		additionMade = false;
 		refreshAfterZoom();
@@ -394,7 +416,6 @@ var pathLayout = function(initial) {
 	function click(d_c) {
 		if (d3.event.defaultPrevented)
 			return;
-		var egonetTitle = "Show Egonet";
 		d3.contextMenu([
 		                {
 		                	title: "Open OEIS Page",
@@ -427,6 +448,12 @@ var pathLayout = function(initial) {
 		        	    	title: "Set as Destination",
 		        	    	action: function(elm, d_a, i) {
 		        	    		textFieldTwo.value = d_a.name;
+		        	    	}
+		        	    }, {
+		        	    	title: "Mark Vertex",
+		        	    	action: function(elm, d_a, i) {
+		        	    		highest.markedVertices.push(d_a);
+		        	    		update();
 		        	    	}
 		        	    } ])(d_c);
 	}
@@ -491,8 +518,19 @@ var pathLayout = function(initial) {
 	resize();
 	
 	if(initial) {
+		d3.text("centroidPathService/description?vertex=" + initial, function(error, data) {
+			if(error) {
+				console.log(error);
+				return;
+			}
+			d3.select("#descriptionField").html(("Egonet of: " + data).substring(0, 40));
+		});
 		d3.json("centroidPathService/getEgonetWithoutCenter?vertex=" + initial, mergeNodesLinks);
 		document.title = "Egonet of " + initial + " (" + document.title + ")";
+	} else if(openMarked) {
+		console.log("Open marked vertices");
+		console.log(highest.markedVertices);
+		document.title = "Marked Vertices (" + document.title + ")";
 	}
 
 }

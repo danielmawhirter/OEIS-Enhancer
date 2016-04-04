@@ -3,7 +3,7 @@ package edu.rutgers.dimacs.reu;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
-
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -19,6 +19,7 @@ import java.util.logging.Logger;
 
 import javax.ejb.Lock;
 import javax.ejb.Singleton;
+import javax.naming.NamingException;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -32,6 +33,12 @@ import org.json.JSONArray;
 
 import edu.rutgers.dimacs.reu.utility.*;
 import static javax.ejb.LockType.READ;
+
+// TODO thicken/color edge based on weight and main view/ego net view (requires weights)
+// TODO vertex tagging cross-window (done)
+// TODO iterated shortest paths for tagged vertices (not done)
+// TODO show description below controls for ego nets (done)
+// TODO click landmark in list to pop up context menu (incorrect position)
 
 @Singleton
 @Path("centroidPathService")
@@ -203,6 +210,20 @@ public class CentroidPathService {
 	@Produces(MediaType.APPLICATION_JSON)
 	public String getPeelLevels() {
 		return Integer.toString(peelToLmToPath.size());
+	}
+	
+	@Path("description")
+	@GET
+	@Produces(MediaType.TEXT_PLAIN)
+	public String getDescription(@QueryParam("vertex") final int vertex) {
+		Set<Integer> s = new HashSet<>();
+		s.add(vertex);
+		try {
+			return DataStore.getInstance().getDescription(s).get(vertex);
+		} catch (SQLException | NamingException e) {
+			LOGGER.log(Level.SEVERE, "Exception thrown during getDescription", e);
+			return "";
+		}
 	}
 
 	// landmark-driven pseudo shortest path

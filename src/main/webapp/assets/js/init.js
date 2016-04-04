@@ -1,12 +1,14 @@
 
 var isFDLPage = true;
+var randIdentifier = Math.random();
+//console.log("Window identifier: " + randIdentifier)
 
-if(!window.opener || !window.opener.isFDLPage) {
-	pathLayout();
-} else {
-	if(!toOpen) {
-		alert("Opened from another window, but no toOpen property set!")
-	} else {
-		pathLayout(toOpen);
-	}
+var highest = window;
+while(highest.opener && highest.opener.isFDLPage) {
+	highest = highest.opener;
 }
+//console.log("Identifier of highest parent: " + highest.randIdentifier);
+
+var markedVertices = [];
+
+pathLayout(window.toOpen, window.openMarked);
