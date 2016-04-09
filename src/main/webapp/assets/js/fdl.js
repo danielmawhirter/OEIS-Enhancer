@@ -336,7 +336,7 @@ var pathLayout = function(initial, openMarked) {
 
 	function strokeWidth(d) {
 		if (d.source && d.source.path && d.target && d.target.path)
-			return 8.0 / currentZoomLevel + "px";
+			return 5.0 / currentZoomLevel + "px";
 		else
 			return 1.0 / currentZoomLevel + "px";
 	}
@@ -523,7 +523,7 @@ var pathLayout = function(initial, openMarked) {
 				console.log(error);
 				return;
 			}
-			d3.select("#descriptionField").html(("Egonet of: " + data).substring(0, 40));
+			d3.select("#descriptionField").html(("Egonet of: (" + initial + ") " + data).substring(0, 40));
 		});
 		d3.json("centroidPathService/getEgonetWithoutCenter?vertex=" + initial, mergeNodesLinks);
 		document.title = "Egonet of " + initial + " (" + document.title + ")";

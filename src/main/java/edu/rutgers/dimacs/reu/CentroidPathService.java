@@ -34,11 +34,9 @@ import org.json.JSONArray;
 import edu.rutgers.dimacs.reu.utility.*;
 import static javax.ejb.LockType.READ;
 
-// TODO thicken/color edge based on weight and main view/ego net view (requires weights)
-// TODO vertex tagging cross-window (done)
+// TODO thicken/color edge based on weight and main view/ego net view (requires weights, not done)
+// TODO vertex tagging cross-window (done) mark in view
 // TODO iterated shortest paths for tagged vertices (not done)
-// TODO show description below controls for ego nets (done)
-// TODO click landmark in list to pop up context menu (incorrect position)
 
 @Singleton
 @Path("centroidPathService")
