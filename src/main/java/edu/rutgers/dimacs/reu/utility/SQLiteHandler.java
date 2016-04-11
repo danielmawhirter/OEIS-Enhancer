@@ -94,21 +94,36 @@ public class SQLiteHandler {
 				+ sequence + ";");
 	}
 	
+	public ResultSet getCrossrefsIncident(Set<Integer> group) throws SQLException {
+		return conn.createStatement().executeQuery("SELECT * FROM Cross_Refs WHERE source IN "
+				+ forSet(group)
+				+ " OR destination IN "
+				+ forSet(group) + ";");
+	}
+	
 	public Map<Integer, String> getDescription(Set<Integer> group) throws SQLException {
 		Map<Integer, String> descs = new TreeMap<>();
-		String in_str = "(";
-		for (Integer i : group) {
-			if (in_str.length() > 1)
-				in_str += ", " + i.toString();
-			else
-				in_str += i.toString();
-		}
-		in_str += ")";
 		ResultSet rs = conn.createStatement().executeQuery("SELECT id, description FROM Sequences WHERE id IN "
-						+ in_str + ";");
+						+ forSet(group) + ";");
 		while (rs.next()) {
 			descs.put(rs.getInt(1), rs.getString(2));
 		}
 		return descs;
+	}
+	
+	private String forSet(Set<Integer> group) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("(");
+		boolean first = true;
+		for(Integer i : group) {
+			if(first) {
+				first = false;
+			} else {
+				sb.append(", ");
+			}
+			sb.append(i.toString());
+		}
+		sb.append(")");
+		return sb.toString();
 	}
 }

@@ -35,8 +35,8 @@ var pathLayout = function(initial, openMarked) {
 	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// End Add To Path View
 
-	//Add Shortest Path
-	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Add Shortest Path
+	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	function addShortestPath() {
 		if (additionPending) {
 			alert("hold on, waiting for server");
@@ -61,8 +61,8 @@ var pathLayout = function(initial, openMarked) {
 		d3.json("centroidPathService/shortestPath?one=" + seqOne + "&two=" + seqTwo, mergeNodesLinks);
 		// add to global nodes/links lists, set boolean flag, call force.resume
 	}
-	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//End Add Shortest Path
+	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// End Add Shortest Path
 
 	// merge arrays of links sorted lexically by id
 	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -121,7 +121,7 @@ var pathLayout = function(initial, openMarked) {
 			return;
 		}
 		
-		//console.log(json);
+		// console.log(json);
 		force.stop();
 		if (json.nodes) {
 			json.nodes.sort(function(a, b){
@@ -260,14 +260,30 @@ var pathLayout = function(initial, openMarked) {
 		links = [];
 		landmarks = [];
 		hist = [];
-		if (force && force.resume)
-			force.resume();
 		additionMade = true;
 		additionPending = false;
+		if (force && force.resume)
+			force.resume();
 	}
 
 	function update() {
 		force.nodes(nodes).links(links).start();
+		
+		for(var i = 0; i < nodes.length; i++) {
+			for(var j = 0; j < highest.markedVertices.length; j++) {
+				if(nodes[i].name == highest.markedVertices[j].name) {
+					nodes[i].marked = true;
+				}
+			}
+		}
+		
+		marked_elements = marked_elements.data(highest.markedVertices, function(d) {
+			return d.name;
+		});
+		marked_elements.enter().append("a").html(function(d) {
+			var label = "<br>&bull; (" + d.name + ") " + d.description;
+			return label.substring(0, 40);
+		});
 
 		link_elements = link_elements.data(links, function(d) {
 			return d.id;
@@ -286,14 +302,7 @@ var pathLayout = function(initial, openMarked) {
 		nodeEnter.append("circle").style("fill", fillColor);
 		nodeEnter.append("text")
 			.html(filteredText).attr("text-anchor", "left");
-		
-		marked_elements = marked_elements.data(highest.markedVertices, function(d) {
-			return d.name;
-		});
-		marked_elements.enter().append("a").html(function(d) {
-			var label = "<br>&bull; (" + d.name + ") " + d.description;
-			return label.substring(0, 40);
-		});
+		nodeEnter.append("polygon").attr("points", "5,0.5 2,9.9 9.5,3.9 0.5,3.9 8,9.9");
 		
 		landmark_elements = landmark_elements.data(nodes.filter(function(d) {
 			return d.landmark;
@@ -304,15 +313,7 @@ var pathLayout = function(initial, openMarked) {
 		landmark_elements.enter().append("a").html(function(d) {
 			var label = "<br>&bull; (" + d.name + ") " + d.description;
 			return label.substring(0, 40);
-		}).on("click", click);/*, function(d) {
-			console.log("simulating on " + d.name);
-			//console.log(document.getElementById("vertex_" + d.name).rbox());
-			//console.log(document.getElementById("vertex_" + d.name).getBoundingClientRect());
-			//document.getElementById("vertex_" + d.name).dispatchEvent(new MouseEvent('click'));
-			var e = document.createEvent('MouseEvents');
-			e.initUIEvent('click', true, true, window, 1);
-			d3.select("#vertex_" + d.name).node().dispatchEvent(e);
-		});*/
+		}).on("click", click);
 
 		additionMade = false;
 		refreshAfterZoom();
@@ -403,6 +404,10 @@ var pathLayout = function(initial, openMarked) {
 	function refreshAfterZoom() {
 		node_elements.select("circle").attr("r", size).attr("stroke-width",
 				1.0 / currentZoomLevel + "px");
+		node_elements.select("polygon").attr("style", function(d) {
+			if(d.marked) return "fill: red;";
+			else return "fill: none;";
+		}).attr("transform", "scale(" + 1.5/currentZoomLevel + "," + 1.5/currentZoomLevel + ")").attr("x", size);
 		if (currentZoomLevel > 5) { // all labels
 			node_elements.select("text").text(allText).attr("font-size",
 					fontSize / currentZoomLevel + "em").attr("x", size);
@@ -528,8 +533,12 @@ var pathLayout = function(initial, openMarked) {
 		d3.json("centroidPathService/getEgonetWithoutCenter?vertex=" + initial, mergeNodesLinks);
 		document.title = "Egonet of " + initial + " (" + document.title + ")";
 	} else if(openMarked) {
-		console.log("Open marked vertices");
-		console.log(highest.markedVertices);
+		// console.log("Open marked vertices");
+		// console.log(highest.markedVertices);
+		var v = highest.markedVertices.map(d => d.name);
+		d3.json("centroidPathService/getSubgraph")
+			.header("Content-Type", "application/json")
+			.post(JSON.stringify(v), mergeNodesLinks);
 		document.title = "Marked Vertices (" + document.title + ")";
 	}
 

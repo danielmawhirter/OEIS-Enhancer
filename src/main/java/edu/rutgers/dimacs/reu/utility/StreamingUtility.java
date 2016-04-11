@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -22,7 +21,7 @@ public class StreamingUtility {
 
 	private static final Logger LOGGER = Logger.getLogger(StreamingUtility.class.getName());
 
-	private static void writeNodesJSON(TreeMap<Integer, TreeSet<Integer>> graph, Set<Integer> path_ints,
+	private static void writeNodesJSON(TreeMap<Integer, TreeMap<Integer, Double>> graph, Set<Integer> path_ints,
 			Set<Integer> landmark_ints, final Map<Integer, Double> nodeWeight, final Map<Integer, Double> lmWeight,
 			ArrayList<Integer> neighborhoodSizes, Writer writer) throws IOException {
 		if (null == graph)
@@ -71,12 +70,13 @@ public class StreamingUtility {
 		}
 	}
 
-	private static void writeEdgesJSON(TreeMap<Integer, TreeSet<Integer>> graph, Writer writer) throws IOException {
+	private static void writeEdgesJSON(TreeMap<Integer, TreeMap<Integer, Double>> graph, Writer writer) throws IOException {
 		if (null == graph)
 			return;
 		boolean first = true;
 		for (int one : graph.keySet()) {
-			for (int two : graph.get(one)) {
+			TreeMap<Integer, Double> oneAdj = graph.get(one);
+			for (int two : oneAdj.keySet()) {
 				if (!first) {
 					writer.write(",");
 				}
@@ -89,6 +89,8 @@ public class StreamingUtility {
 				writer.write(Integer.toString(one));
 				writer.write("\", \"target_name\":\"");
 				writer.write(Integer.toString(two));
+				writer.write("\", \"edge_weight\":\"");
+				writer.write(Double.toString(oneAdj.get(two)));
 				writer.write("\"}");
 			}
 		}
@@ -103,7 +105,7 @@ public class StreamingUtility {
 			@Override
 			public void write(OutputStream os) throws IOException {
 				Writer writer = new BufferedWriter(new OutputStreamWriter(os));
-				TreeMap<Integer, TreeSet<Integer>> graph = null;
+				TreeMap<Integer, TreeMap<Integer, Double>> graph = null;
 				try {
 					graph = DataStore.getInstance().getSubgraphInduced(vertices);
 				} catch (ExecutionException e) {

@@ -25,7 +25,7 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.FormParam;
+import javax.ws.rs.Consumes;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
@@ -35,8 +35,6 @@ import edu.rutgers.dimacs.reu.utility.*;
 import static javax.ejb.LockType.READ;
 
 // TODO thicken/color edge based on weight and main view/ego net view (requires weights, not done)
-// TODO vertex tagging cross-window (done) mark in view
-// TODO iterated shortest paths for tagged vertices (not done)
 
 @Singleton
 @Path("centroidPathService")
@@ -107,14 +105,17 @@ public class CentroidPathService {
 	@Path("getSubgraph")
 	@POST
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response getSubgraphInduced(@FormParam("vertices") String data) {
+	@Consumes(MediaType.APPLICATION_JSON)
+	public Response iteratedShortestPath(String data) {
 		long timeStart = System.nanoTime();
 		JSONArray js = new JSONArray(data);
-		Set<Integer> vertices = new HashSet<>();
+		Set<Integer> input_vertices = new HashSet<>();
+		HashSet<Integer> vertices = new HashSet<>();
 		for (int i = 0; i < js.length(); i++) {
-			vertices.add(js.getInt(i));
+			input_vertices.add(js.getInt(i));
+			vertices.addAll(getShortestPath(js.getInt(i), vertices));
 		}
-		return Response.ok(StreamingUtility.streamJSON(vertices, null, peelToLmToPath.get(0).keySet(), nodeToWeight,
+		return Response.ok(StreamingUtility.streamJSON(vertices, input_vertices, null, nodeToWeight,
 				lmToShannon, neighborCounts, timeStart)).build();
 	}
 
@@ -255,6 +256,8 @@ public class CentroidPathService {
 			}
 			if (landmarkFound)
 				break;
+			//HashSet<Integer> hs = new HashSet<>(queue);
+			//DataStore.getInstance().prefetch(hs);
 		}
 
 		ArrayList<Integer> pathToLM = new ArrayList<Integer>();
@@ -274,9 +277,20 @@ public class CentroidPathService {
 		output_path.addAll(peelToLmToPath.get(level).get(closestlm));
 		return output_path;
 	}
+	
+	private Collection<Integer> getShortestPath(int one, int two) {
+		HashSet<Integer> s = new HashSet<>();
+		s.add(two);
+		return getShortestPath(one, s);
+	}
 
 	// bfs-driven true shortest path
-	private Collection<Integer> getShortestPath(int one, int two) {
+	private Collection<Integer> getShortestPath(int one, HashSet<Integer> dests) {
+		if(dests.isEmpty()) {
+			LinkedList<Integer> path = new LinkedList<Integer>();
+			path.add(one);
+			return path;
+		}
 		Queue<Integer> queue = new LinkedList<Integer>();
 		HashSet<Integer> visited = new HashSet<Integer>();
 		HashMap<Integer, Integer> gnToParent = new HashMap<Integer, Integer>();
@@ -284,8 +298,8 @@ public class CentroidPathService {
 		queue.add(one);
 		visited.add(one);
 		gnToParent.put(one, one);
-		boolean found = false;
-		while (!queue.isEmpty() && !found) {
+		int found = -1;
+		while (!queue.isEmpty() && found < 0) {
 			Integer u = queue.remove();
 			try {
 				for (int x : DataStore.getInstance().getAdjacentUndirected(u)) {
@@ -294,26 +308,28 @@ public class CentroidPathService {
 						visited.add(x);
 						gnToParent.put(x, u);
 					}
-					if (two == x) {
-						found = true;
+					if (dests.contains(x)) {
+						found = x;
 						break;
 					}
 				}
 			} catch (ExecutionException e) {
 				e.printStackTrace();
 			}
+			//HashSet<Integer> hs = new HashSet<>(queue);
+			//DataStore.getInstance().prefetch(hs);
 		}
 
 		LinkedList<Integer> path = new LinkedList<Integer>();
 		path.add(one);
 
-		if (!found) {
-			path.add(two);
+		if (found < 0) {
+			path.addAll(dests);
 			return path;
 		}
 
 		// retrieve the path to the found landmark
-		int curr = two;
+		int curr = found;
 		while (curr != one) {
 			path.add(curr);
 			curr = gnToParent.get(curr);
