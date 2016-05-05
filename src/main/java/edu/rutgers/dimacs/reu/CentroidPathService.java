@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.LinkedList;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -158,9 +159,36 @@ public class CentroidPathService {
 			LOGGER.log(Level.SEVERE, "Exception thrown during getNeighbors", e);
 			return Response.serverError().build();
 		}
-		return Response.ok(
-				StreamingUtility.streamJSON(vertices, null, null, nodeToWeight, lmToShannon, neighborCounts, timeStart))
-				.build();
+		if(vertices.size() < 128) {
+			return Response.ok(
+					StreamingUtility.streamJSON(vertices, null, null, nodeToWeight, lmToShannon, neighborCounts, timeStart))
+					.build();
+		} else {
+			try {
+				TreeMap<Integer, TreeMap<Integer, Double>> induced = DataStore.getInstance().getSubgraphInduced(vertices);
+				HashMap<Integer, HashSet<Integer>> undir = new HashMap<>();
+				for(Integer s : induced.keySet()) {
+					for(Integer d : induced.get(s).keySet()) {
+						undir.putIfAbsent(s, new HashSet<Integer>());
+						undir.get(s).add(d);
+						undir.putIfAbsent(d, new HashSet<Integer>());
+						undir.get(d).add(s);
+					}
+				}
+				Map<Integer, ArrayList<Integer>> egonet_lmToPath = Clustering.generate_lmToPath(undir);
+				Set<Integer> all = new HashSet<>(egonet_lmToPath.keySet());
+				for (Integer lm : egonet_lmToPath.keySet()) {
+					all.addAll(egonet_lmToPath.get(lm));
+				}
+				//undir -> lmToPath, lmToShannon
+				return Response.ok(StreamingUtility.streamJSON(all, null, egonet_lmToPath.keySet(), nodeToWeight,
+						null, neighborCounts, timeStart)).build();
+			} catch (ExecutionException e) {
+				LOGGER.log(Level.SEVERE, "Exception thrown during getNeighbors", e);
+				return Response.serverError().build();
+			}
+		}
+		
 	}
 
 	@Path("getNeighborhoodSize")
