@@ -426,6 +426,8 @@ var pathLayout = function(initial, openMarked) {
 	function click(d_c) {
 		if (d3.event.defaultPrevented)
 			return;
+		d_c.path = true;
+		refreshAfterZoom();
 		d3.contextMenu([
 		                {
 		                	title: function(d_a) {
@@ -445,7 +447,6 @@ var pathLayout = function(initial, openMarked) {
 		        	    		if(d_a.neighborhoodSize < 128 || confirm("Large egonet, confirm to open in this view")) {
 			        	    		d3.json("centroidPathService/getEgonet?vertex=" + d_a.name.split("-")[0], mergeNodesLinks);
 			        	    		console.log("Show egonet for vertex: " + d_a.name);
-			        	    		d_a.path = true;
 		        	    		}
 		        	    	}
 		        	    }, {
