@@ -302,15 +302,13 @@ var pathLayout = function(initial, openMarked) {
 					return "vertex_" + d.name;
 				});
 		nodeEnter.append("circle").style("fill", fillColor);
-		nodeEnter.append("text")
-			.html(filteredText).attr("text-anchor", "left");
+		nodeEnter.append("text").attr("text-anchor", "left");
 		nodeEnter.append("polygon").attr("points", "5,0.5 2,9.9 9.5,3.9 0.5,3.9 8,9.9");
 		
-		landmark_elements = landmark_elements.data(nodes.filter(function(d) {
-			return d.landmark;
-		}), function(d) {
-			return d.name;
-		});
+		landmark_elements = landmark_elements.data(nodes.filter(d => d.landmark),
+			function(d) {
+				return d.name;
+			});
 		landmark_elements.exit().remove();
 		landmark_elements.enter().append("a").html(function(d) {
 			var label = "<br>&bull; (" + d.name + ") " + d.description;
@@ -318,7 +316,7 @@ var pathLayout = function(initial, openMarked) {
 		}).on("click", click);
 
 		additionMade = false;
-		refreshAfterZoom();
+		updateLabelFraction();
 		console.log("showing " + nodes.length + " nodes and " + links.length + " links")
 	}
 
@@ -378,11 +376,12 @@ var pathLayout = function(initial, openMarked) {
 	}
 
 	function filteredText(d) {
-		if (d.landmark || d.path) {
-			if (d.description) {
-				return d.description;
-			} else {
-				return d.name;
+		if (d.path) {
+			return d.description || d.name;
+		} else if (d.landmark) {
+			var index = window.labeledLandmarks.indexOf(d.name);
+			if(index >= 0) {
+				return d.description || d.name;
 			}
 		}
 		return "";
@@ -525,6 +524,17 @@ var pathLayout = function(initial, openMarked) {
 	resize();
 	
 	d3.select(".menu").on("mouseover", updateMarked);
+	
+	function updateLabelFraction() {
+		var v = document.getElementById("labelFraction").value;
+		var landmarks = nodes.filter(d => d.landmark);
+		var sorted = landmarks.sort(function(a, b) {
+		    return b.landmarkWeight - a.landmarkWeight;
+		}).map(d => d.name);
+		window.labeledLandmarks = sorted.slice(0, sorted.length * v / 100);
+		refreshAfterZoom();
+	}
+	d3.select("#labelFraction").on("change", updateLabelFraction);
 	
 	if(initial) {
 		d3.text("centroidPathService/description?vertex=" + initial, function(error, data) {
