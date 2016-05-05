@@ -376,15 +376,19 @@ var pathLayout = function(initial, openMarked) {
 	}
 
 	function filteredText(d) {
-		if (d.path) {
+		if (nodes.length < 128) {
 			return d.description || d.name;
-		} else if (d.landmark) {
-			var index = window.labeledLandmarks.indexOf(d.name);
-			if(index >= 0) {
+		} else {
+			if (d.path) {
 				return d.description || d.name;
+			} else if (d.landmark) {
+				var index = window.labeledLandmarks.indexOf(d.name);
+				if(index >= 0) {
+					return d.description || d.name;
+				}
 			}
+			return "";
 		}
-		return "";
 	}
 
 	function resize() {
@@ -409,7 +413,7 @@ var pathLayout = function(initial, openMarked) {
 			if(d.marked) return "fill: red;";
 			else return "fill: none;";
 		}).attr("transform", "scale(" + 1.5/currentZoomLevel + "," + 1.5/currentZoomLevel + ")").attr("x", size);
-		if (currentZoomLevel > 5) { // all labels
+		if (currentZoomLevel > 4) { // all labels
 			node_elements.select("text").text(allText).attr("font-size",
 					fontSize / currentZoomLevel + "em").attr("x", size);
 		} else {
@@ -424,6 +428,10 @@ var pathLayout = function(initial, openMarked) {
 			return;
 		d3.contextMenu([
 		                {
+		                	title: function(d_a) {
+		                		return (d_a.description || d_a.name).substring(0, 25);
+		                	}, action: function(elm, d_a, i) {}
+		        	    }, {
 		                	title: "Open OEIS Page",
 		                	action: function(elm, d, i) {
 		                		console.log("Open OEIS Page for vertex: " + d.name);
@@ -542,7 +550,7 @@ var pathLayout = function(initial, openMarked) {
 				console.log(error);
 				return;
 			}
-			d3.select("#descriptionField").html(("Egonet of: (" + initial + ") " + data).substring(0, 40));
+			d3.select("#descriptionField").html("Egonet of: (<a href='http://oeis.org/A" + initial + "' target='_blank'>" + initial + "</a>) " + data.substring(0, 30));
 		});
 		d3.json("centroidPathService/getEgonetWithoutCenter?vertex=" + initial, mergeNodesLinks);
 		document.title = "Egonet of " + initial + " (" + document.title + ")";

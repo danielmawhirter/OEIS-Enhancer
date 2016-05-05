@@ -118,8 +118,8 @@ public class CentroidPathService {
 			input_vertices.add(js.getInt(i));
 			vertices.addAll(getShortestPath(js.getInt(i), vertices));
 		}
-		return Response.ok(StreamingUtility.streamJSON(vertices, input_vertices, null, nodeToWeight,
-				lmToShannon, neighborCounts, timeStart)).build();
+		return Response.ok(StreamingUtility.streamJSON(vertices, input_vertices, null, nodeToWeight, lmToShannon,
+				neighborCounts, timeStart)).build();
 	}
 
 	@Path("getEgonet")
@@ -159,36 +159,35 @@ public class CentroidPathService {
 			LOGGER.log(Level.SEVERE, "Exception thrown during getNeighbors", e);
 			return Response.serverError().build();
 		}
-		if(vertices.size() < 128) {
-			return Response.ok(
-					StreamingUtility.streamJSON(vertices, null, null, nodeToWeight, lmToShannon, neighborCounts, timeStart))
-					.build();
-		} else {
-			try {
-				TreeMap<Integer, TreeMap<Integer, Double>> induced = DataStore.getInstance().getSubgraphInduced(vertices);
-				HashMap<Integer, HashSet<Integer>> undir = new HashMap<>();
-				for(Integer s : induced.keySet()) {
-					for(Integer d : induced.get(s).keySet()) {
-						undir.putIfAbsent(s, new HashSet<Integer>());
-						undir.get(s).add(d);
-						undir.putIfAbsent(d, new HashSet<Integer>());
-						undir.get(d).add(s);
-					}
+
+		try {
+			TreeMap<Integer, TreeMap<Integer, Double>> induced = DataStore.getInstance().getSubgraphInduced(vertices);
+			HashMap<Integer, HashSet<Integer>> undir = new HashMap<>();
+			for (Integer s : induced.keySet()) {
+				for (Integer d : induced.get(s).keySet()) {
+					undir.putIfAbsent(s, new HashSet<Integer>());
+					undir.get(s).add(d);
+					undir.putIfAbsent(d, new HashSet<Integer>());
+					undir.get(d).add(s);
 				}
-				Map<Integer, ArrayList<Integer>> egonet_lmToPath = Clustering.generate_lmToPath(undir);
-				Set<Integer> all = new HashSet<>(egonet_lmToPath.keySet());
-				for (Integer lm : egonet_lmToPath.keySet()) {
-					all.addAll(egonet_lmToPath.get(lm));
-				}
-				//undir -> lmToPath, lmToShannon
-				return Response.ok(StreamingUtility.streamJSON(all, null, egonet_lmToPath.keySet(), nodeToWeight,
-						null, neighborCounts, timeStart)).build();
-			} catch (ExecutionException e) {
-				LOGGER.log(Level.SEVERE, "Exception thrown during getNeighbors", e);
-				return Response.serverError().build();
 			}
+			Map<Integer, ArrayList<Integer>> egonet_lmToPath = Clustering.generate_lmToPath(undir);
+			Set<Integer> all = new HashSet<>(egonet_lmToPath.keySet());
+			for (Integer lm : egonet_lmToPath.keySet()) {
+				all.addAll(egonet_lmToPath.get(lm));
+			}
+			if(vertices.size() < 128) {
+				all.addAll(vertices);
+				return Response.ok(StreamingUtility.streamJSON(all, null, egonet_lmToPath.keySet(), nodeToWeight, null,
+						neighborCounts, timeStart)).build();
+			} else {
+				return Response.ok(StreamingUtility.streamJSON(all, null, egonet_lmToPath.keySet(), nodeToWeight, null,
+						neighborCounts, timeStart)).build();
+			}
+		} catch (ExecutionException e) {
+			LOGGER.log(Level.SEVERE, "Exception thrown during getNeighbors", e);
+			return Response.serverError().build();
 		}
-		
 	}
 
 	@Path("getNeighborhoodSize")
@@ -240,7 +239,7 @@ public class CentroidPathService {
 	public String getPeelLevels() {
 		return Integer.toString(peelToLmToPath.size());
 	}
-	
+
 	@Path("description")
 	@GET
 	@Produces(MediaType.TEXT_PLAIN)
@@ -286,8 +285,8 @@ public class CentroidPathService {
 			}
 			if (landmarkFound)
 				break;
-			//HashSet<Integer> hs = new HashSet<>(queue);
-			//DataStore.getInstance().prefetch(hs);
+			// HashSet<Integer> hs = new HashSet<>(queue);
+			// DataStore.getInstance().prefetch(hs);
 		}
 
 		ArrayList<Integer> pathToLM = new ArrayList<Integer>();
@@ -307,7 +306,7 @@ public class CentroidPathService {
 		output_path.addAll(peelToLmToPath.get(level).get(closestlm));
 		return output_path;
 	}
-	
+
 	private Collection<Integer> getShortestPath(int one, int two) {
 		HashSet<Integer> s = new HashSet<>();
 		s.add(two);
@@ -316,7 +315,7 @@ public class CentroidPathService {
 
 	// bfs-driven true shortest path
 	private Collection<Integer> getShortestPath(int one, HashSet<Integer> dests) {
-		if(dests.isEmpty()) {
+		if (dests.isEmpty()) {
 			LinkedList<Integer> path = new LinkedList<Integer>();
 			path.add(one);
 			return path;
@@ -346,8 +345,8 @@ public class CentroidPathService {
 			} catch (ExecutionException e) {
 				e.printStackTrace();
 			}
-			//HashSet<Integer> hs = new HashSet<>(queue);
-			//DataStore.getInstance().prefetch(hs);
+			// HashSet<Integer> hs = new HashSet<>(queue);
+			// DataStore.getInstance().prefetch(hs);
 		}
 
 		LinkedList<Integer> path = new LinkedList<Integer>();
