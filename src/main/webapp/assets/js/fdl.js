@@ -265,10 +265,8 @@ var pathLayout = function(initial, openMarked) {
 		if (force && force.resume)
 			force.resume();
 	}
-
-	function update() {
-		force.nodes(nodes).links(links).start();
-		
+	
+	function updateMarked() {
 		for(var i = 0; i < nodes.length; i++) {
 			for(var j = 0; j < highest.markedVertices.length; j++) {
 				if(nodes[i].name == highest.markedVertices[j].name) {
@@ -284,7 +282,11 @@ var pathLayout = function(initial, openMarked) {
 			var label = "<br>&bull; (" + d.name + ") " + d.description;
 			return label.substring(0, 40);
 		});
+	}
 
+	function update() {
+		force.nodes(nodes).links(links).start();
+		updateMarked();
 		link_elements = link_elements.data(links, function(d) {
 			return d.id;
 		}).attr("stroke-width", strokeWidth).style("stroke", stroke);
@@ -521,6 +523,8 @@ var pathLayout = function(initial, openMarked) {
 			});
 	
 	resize();
+	
+	d3.select(".menu").on("mouseover", updateMarked);
 	
 	if(initial) {
 		d3.text("centroidPathService/description?vertex=" + initial, function(error, data) {

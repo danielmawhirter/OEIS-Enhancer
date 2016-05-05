@@ -35,6 +35,8 @@ import edu.rutgers.dimacs.reu.utility.*;
 import static javax.ejb.LockType.READ;
 
 // TODO thicken/color edge based on weight and main view/ego net view (requires weights, not done)
+// TODO marked vertex import
+// TODO mark toggle
 
 @Singleton
 @Path("centroidPathService")
