@@ -11,4 +11,4 @@ while(highest.opener && highest.opener.isFDLPage) {
 
 var markedVertices = [];
 
-pathLayout(window.toOpen, window.openMarked);
+pathLayout(window.toOpen, window.openMarked, window.openList);

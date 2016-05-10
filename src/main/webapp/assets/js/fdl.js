@@ -1,6 +1,6 @@
 // Path View
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-var pathLayout = function(initial, openMarked) {
+var pathLayout = function(initial, openMarked, openList) {
 	
 	// Add To Path View
 	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -168,6 +168,7 @@ var pathLayout = function(initial, openMarked) {
 	
 	document.getElementById("addToRelationViewButton").onclick = addToPathView;
 	document.getElementById("addShortestPathButton").onclick = addShortestPath;
+	
 	document.getElementById("resumeForceButton").onclick = function() {
 		if (force && force.resume)
 			force.resume();
@@ -176,8 +177,25 @@ var pathLayout = function(initial, openMarked) {
 		if (force && force.stop)
 			force.stop();
 	};
+	
 	document.getElementById("openMarkedButton").onclick = function() {
-		window.open("/").openMarked = true;
+		var csvVal = document.getElementById("batchList").value;
+		if(csvVal.length == 0) {
+			window.open("/").openMarked = true;
+		} else {
+			var split = csvVal.split(",");
+			var listInts = [];
+			for(var i = 0; i < split.length; i++) {
+				var n = ~~Number(split[i]);
+				if(isNaN(n)) {
+					alert("CSV input contains something that is not a number");
+					return;
+				}
+				listInts.push(n);
+			}
+			window.open("/").openList = listInts;
+			document.getElementById("batchList").value = "";
+		}
 	};
 	
 	// input fields
@@ -563,6 +581,11 @@ var pathLayout = function(initial, openMarked) {
 			.header("Content-Type", "application/json")
 			.post(JSON.stringify(v), mergeNodesLinks);
 		document.title = "Marked Vertices (" + document.title + ")";
+	} else if(Array.isArray(openList)) {
+		d3.json("centroidPathService/getSubgraph")
+			.header("Content-Type", "application/json")
+			.post(JSON.stringify(openList), mergeNodesLinks);
+		document.title = "Listed Vertices (" + document.title + ")";
 	}
 
 }
