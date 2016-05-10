@@ -187,8 +187,8 @@ var pathLayout = function(initial, openMarked, openList) {
 			var listInts = [];
 			for(var i = 0; i < split.length; i++) {
 				var n = ~~Number(split[i]);
-				if(isNaN(n)) {
-					alert("CSV input contains something that is not a number");
+				if(isNaN(n) || (String(n) != split[i]) || n < 1) {
+					alert("CSV input contains something that is not a valid sequence number");
 					return;
 				}
 				listInts.push(n);
