@@ -371,7 +371,7 @@ var pathLayout = function(initial, openMarked, openList) {
 		if (d.landmark)
 			return "yellow"
 		if (d.path) {
-			if (primaryNodes.indexOf(d.name.split("-")[0]) != -1)
+			if (primaryNodes.indexOf(d.name) != -1)
 				return "red";
 			return "blue";
 		}
@@ -580,11 +580,13 @@ var pathLayout = function(initial, openMarked, openList) {
 		d3.json("centroidPathService/getSubgraph")
 			.header("Content-Type", "application/json")
 			.post(JSON.stringify(v), mergeNodesLinks);
+		primaryNodes = v;
 		document.title = "Marked Vertices (" + document.title + ")";
 	} else if(Array.isArray(openList)) {
 		d3.json("centroidPathService/getSubgraph")
 			.header("Content-Type", "application/json")
 			.post(JSON.stringify(openList), mergeNodesLinks);
+		primaryNodes = openList;
 		document.title = "Listed Vertices (" + document.title + ")";
 	}
 

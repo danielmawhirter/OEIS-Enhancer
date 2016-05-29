@@ -115,8 +115,10 @@ public class CentroidPathService {
 		Set<Integer> input_vertices = new HashSet<>();
 		HashSet<Integer> vertices = new HashSet<>();
 		for (int i = 0; i < js.length(); i++) {
-			input_vertices.add(js.getInt(i));
-			vertices.addAll(getShortestPath(js.getInt(i), vertices));
+			if(!input_vertices.contains(js.getInt(i))) {
+				input_vertices.add(js.getInt(i));
+				vertices.addAll(getShortestPath(js.getInt(i), vertices));
+			}
 		}
 		return Response.ok(StreamingUtility.streamJSON(vertices, input_vertices, null, nodeToWeight, lmToShannon,
 				neighborCounts, timeStart)).build();
