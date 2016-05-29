@@ -47,7 +47,7 @@ public class CentroidPathService {
 	private final ArrayList<Map<Integer, ArrayList<Integer>>> peelToLmToPath;
 	private final Map<Integer, Double> lmToShannon;
 	private final Map<Integer, Double> nodeToWeight;
-	private final ArrayList<Integer> neighborCounts;
+	//private final ArrayList<Integer> neighborCounts;
 
 	@SuppressWarnings("unchecked")
 	public CentroidPathService() {
@@ -56,16 +56,16 @@ public class CentroidPathService {
 		ArrayList<Integer> nc = null;
 		try {
 			levels = (ArrayList<Map<Integer, ArrayList<Integer>>>) loadSerialized("pvTo_LmToPath.ser");
-			lts = (Map<Integer, Double>) loadSerialized("lmToShannon.ser");
-			ntw = (Map<Integer, Double>) loadSerialized("nodeToWeight.ser");
-			nc = (ArrayList<Integer>) loadSerialized("neighborCounts.ser");
+			//lts = (Map<Integer, Double>) loadSerialized("lmToShannon.ser");
+			//ntw = (Map<Integer, Double>) loadSerialized("nodeToWeight.ser");
+			//nc = (ArrayList<Integer>) loadSerialized("neighborCounts.ser");
 		} catch (ClassNotFoundException | IOException e) {
 			LOGGER.log(Level.SEVERE, "Exception during serialized loading", e);
 		} finally {
 			peelToLmToPath = levels;
 			lmToShannon = lts;
 			nodeToWeight = ntw;
-			neighborCounts = nc;
+			//neighborCounts = nc;
 		}
 		LOGGER.info("Centroid Path Service Instanciated");
 	}
@@ -102,7 +102,7 @@ public class CentroidPathService {
 			all.addAll(peelToLmToPath.get(level).get(lm));
 		}
 		return Response.ok(StreamingUtility.streamJSON(all, null, peelToLmToPath.get(level).keySet(), nodeToWeight,
-				lmToShannon, neighborCounts, timeStart)).build();
+				lmToShannon, timeStart)).build();
 	}
 
 	@Path("getSubgraph")
@@ -121,7 +121,7 @@ public class CentroidPathService {
 			}
 		}
 		return Response.ok(StreamingUtility.streamJSON(vertices, input_vertices, null, nodeToWeight, lmToShannon,
-				neighborCounts, timeStart)).build();
+				timeStart)).build();
 	}
 
 	@Path("getEgonet")
@@ -143,7 +143,7 @@ public class CentroidPathService {
 			return Response.serverError().build();
 		}
 		return Response.ok(StreamingUtility.streamJSON(vertices, path_ints, null, nodeToWeight, lmToShannon,
-				neighborCounts, timeStart)).build();
+				timeStart)).build();
 	}
 
 	@Path("getEgonetWithoutCenter")
@@ -181,10 +181,10 @@ public class CentroidPathService {
 			if(vertices.size() < 128) {
 				all.addAll(vertices);
 				return Response.ok(StreamingUtility.streamJSON(all, null, egonet_lmToPath.keySet(), nodeToWeight, null,
-						neighborCounts, timeStart)).build();
+						timeStart)).build();
 			} else {
 				return Response.ok(StreamingUtility.streamJSON(all, null, egonet_lmToPath.keySet(), nodeToWeight, null,
-						neighborCounts, timeStart)).build();
+						timeStart)).build();
 			}
 		} catch (ExecutionException e) {
 			LOGGER.log(Level.SEVERE, "Exception thrown during getNeighbors", e);
@@ -219,7 +219,7 @@ public class CentroidPathService {
 		Collection<Integer> path = getShortestPath(one, two);
 		Set<Integer> path_ints = new HashSet<Integer>(path);
 		return Response.ok(StreamingUtility.streamJSON(path_ints, path_ints, null, nodeToWeight, lmToShannon,
-				neighborCounts, timeStart)).build();
+				timeStart)).build();
 	}
 
 	@GET
@@ -232,7 +232,7 @@ public class CentroidPathService {
 			return getEgonet(vertex);
 		Set<Integer> path_ints = new HashSet<Integer>(path);
 		return Response.ok(StreamingUtility.streamJSON(path_ints, path_ints, peelToLmToPath.get(peelLevel).keySet(),
-				nodeToWeight, lmToShannon, neighborCounts, timeStart)).build();
+				nodeToWeight, lmToShannon, timeStart)).build();
 	}
 
 	@Path("peelLevels")

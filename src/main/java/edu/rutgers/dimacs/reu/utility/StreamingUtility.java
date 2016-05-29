@@ -23,7 +23,7 @@ public class StreamingUtility {
 
 	private static void writeNodesJSON(TreeMap<Integer, TreeMap<Integer, Double>> graph, Set<Integer> path_ints,
 			Set<Integer> landmark_ints, final Map<Integer, Double> nodeWeight, final Map<Integer, Double> lmWeight,
-			ArrayList<Integer> neighborhoodSizes, Writer writer) throws IOException {
+			Writer writer) throws IOException {
 		if (null == graph)
 			return;
 		Set<Integer> vertices = graph.keySet();
@@ -62,10 +62,6 @@ public class StreamingUtility {
 				writer.write("\",\"nodeWeight\":\"");
 				writer.write(nodeWeight.get(gn_int).toString());
 			}
-			if (null != neighborhoodSizes && gn_int < neighborhoodSizes.size()) {
-				writer.write("\",\"neighborhoodSize\":\"");
-				writer.write(neighborhoodSizes.get(gn_int).toString());
-			}
 			writer.write("\"}");
 		}
 	}
@@ -98,7 +94,7 @@ public class StreamingUtility {
 
 	public static StreamingOutput streamJSON(final Set<Integer> vertices, final Set<Integer> path_ints,
 			final Set<Integer> landmark_ints, final Map<Integer, Double> nodeWeight,
-			final Map<Integer, Double> lmWeight, final ArrayList<Integer> neighborhoodSizes, final long timeStart) {
+			final Map<Integer, Double> lmWeight, final long timeStart) {
 		if (null == vertices)
 			return null;
 		return new StreamingOutput() {
@@ -113,7 +109,7 @@ public class StreamingUtility {
 				}
 
 				writer.write("{\n\"nodes\":[\n");
-				writeNodesJSON(graph, path_ints, landmark_ints, nodeWeight, lmWeight, neighborhoodSizes, writer);
+				writeNodesJSON(graph, path_ints, landmark_ints, nodeWeight, lmWeight, writer);
 				writer.write("], \"links\":[\n");
 				writeEdgesJSON(graph, writer);
 				writer.write("]\n}");
