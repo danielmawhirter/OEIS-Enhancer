@@ -452,20 +452,11 @@ var pathLayout = function(initial, openMarked, openList) {
 		                		return (d_a.description || d_a.name).substring(0, 25);
 		                	}, action: function(elm, d_a, i) {}
 		        	    }, {
-		                	title: "Open OEIS Page",
-		                	action: function(elm, d, i) {
-		                		console.log("Open OEIS Page for vertex: " + d.name);
-		                		window.open("http://oeis.org/A" + d.name.split("-")[0]);
-		        	        }
-		        	    }, {
 		        	    	title: function(d_a) {
-		        	    		return "Show Egonet (" + d_a.neighborhoodSize + ")";
+		        	    		return "Show Egonet";
 		        	    	},
 		        	    	action: function(elm, d_a, i) {
-		        	    		if(d_a.neighborhoodSize < 128 || confirm("Large egonet, confirm to open in this view")) {
-			        	    		d3.json("centroidPathService/getEgonet?vertex=" + d_a.name.split("-")[0], mergeNodesLinks);
-			        	    		console.log("Show egonet for vertex: " + d_a.name);
-		        	    		}
+			        	    	d3.json("centroidPathService/getEgonet?vertex=" + d_a.name.split("-")[0], mergeNodesLinks);
 		        	    	}
 		        	    }, {
 		        	    	title: "Open Egonet in New Window",
@@ -569,7 +560,7 @@ var pathLayout = function(initial, openMarked, openList) {
 				console.log(error);
 				return;
 			}
-			d3.select("#descriptionField").html("Egonet of: (<a href='http://oeis.org/A" + initial + "' target='_blank'>" + initial + "</a>) " + data.substring(0, 30));
+			d3.select("#descriptionField").html("Egonet of: (" + initial + ") " + data.substring(0, 30));
 		});
 		d3.json("centroidPathService/getEgonetWithoutCenter?vertex=" + initial, mergeNodesLinks);
 		document.title = "Egonet of " + initial + " (" + document.title + ")";
