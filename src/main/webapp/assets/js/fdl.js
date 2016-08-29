@@ -1,6 +1,6 @@
 // Path View
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-var pathLayout = function(initial, openMarked, openList) {
+var pathLayout = function(initial, openMarked, openList, subgraphMode) {
 	
 	// Add To Path View
 	// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -194,6 +194,28 @@ var pathLayout = function(initial, openMarked, openList) {
 				listInts.push(n);
 			}
 			window.open("/").openList = listInts;
+			document.getElementById("batchList").value = "";
+		}
+	};
+	
+	document.getElementById("markedSubgraphButton").onclick = function() {
+		var csvVal = document.getElementById("batchList").value;
+		if(csvVal.length == 0) {
+			window.open("/").openMarked = true;
+		} else {
+			var split = csvVal.split(",");
+			var listInts = [];
+			for(var i = 0; i < split.length; i++) {
+				var n = ~~Number(split[i]);
+				if(isNaN(n) || (String(n) != split[i]) || n < 1) {
+					alert("CSV input contains something that is not a valid sequence number");
+					return;
+				}
+				listInts.push(n);
+			}
+			var w = window.open("/");
+			w.openList = listInts;
+			w.subgraphMode = true;
 			document.getElementById("batchList").value = "";
 		}
 	};
@@ -574,11 +596,19 @@ var pathLayout = function(initial, openMarked, openList) {
 		primaryNodes = v;
 		document.title = "Marked Vertices (" + document.title + ")";
 	} else if(Array.isArray(openList)) {
-		d3.json("centroidPathService/getSubgraph")
+		if(subgraphMode) {
+			d3.json("centroidPathService/getSubgraphInduced")
 			.header("Content-Type", "application/json")
 			.post(JSON.stringify(openList), mergeNodesLinks);
 		primaryNodes = openList;
 		document.title = "Listed Vertices (" + document.title + ")";
+		} else {
+			d3.json("centroidPathService/getSubgraph")
+				.header("Content-Type", "application/json")
+				.post(JSON.stringify(openList), mergeNodesLinks);
+			primaryNodes = openList;
+			document.title = "Listed Vertices (" + document.title + ")";
+		}
 	}
 
 }

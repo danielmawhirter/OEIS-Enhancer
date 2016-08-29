@@ -123,6 +123,21 @@ public class CentroidPathService {
 		return Response.ok(StreamingUtility.streamJSON(vertices, input_vertices, null, nodeToWeight, lmToShannon,
 				timeStart)).build();
 	}
+	
+	@Path("getSubgraphInduced")
+	@POST
+	@Produces(MediaType.APPLICATION_JSON)
+	@Consumes(MediaType.APPLICATION_JSON)
+	public Response subgraphInduced(String data) {
+		long timeStart = System.nanoTime();
+		JSONArray js = new JSONArray(data);
+		HashSet<Integer> vertices = new HashSet<>();
+		for (int i = 0; i < js.length(); i++) {
+			vertices.add(js.getInt(i));
+		}
+		return Response.ok(StreamingUtility.streamJSON(vertices, vertices, null, nodeToWeight, lmToShannon,
+				timeStart)).build();
+	}
 
 	@Path("getEgonet")
 	@GET
