@@ -377,9 +377,9 @@ var pathLayout = function(initial, openMarked, openList, subgraphMode) {
 
 	function strokeWidth(d) {
 		if (d.source && d.source.path && d.target && d.target.path)
-			return 5.0 / currentZoomLevel + "px";
+			return 3.0 / currentZoomLevel + "px";
 		else
-			return 1.0 / currentZoomLevel + "px";
+			return 0.6 / currentZoomLevel + "px";
 	}
 
 	function stroke(d) {
@@ -391,13 +391,13 @@ var pathLayout = function(initial, openMarked, openList, subgraphMode) {
 
 	function fillColor(d) {
 		if (d.landmark)
-			return "yellow"
+			return "rgb(0,0,0)"
 		if (d.path) {
 			if (primaryNodes.indexOf(d.name) != -1)
-				return "red";
-			return "blue";
+				return "rgb(85,85,85)";
+			return "rgb(171,171,171)";
 		}
-		return "hsl(0, 0%, " + (25 + 50 * d.nodeWeight) + "%)";
+		return "rgb(255,255,255)";
 	}
 	
 
